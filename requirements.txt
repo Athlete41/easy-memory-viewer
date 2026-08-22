@@ -1,0 +1,4 @@
+# python 3.12
+
+PySide6>=6.6
+pywin32                   == 312

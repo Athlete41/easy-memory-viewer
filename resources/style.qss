@@ -1,0 +1,123 @@
+QMainWindow, QWidget {
+    background-color: #232428;
+    color: #E8E8E8;
+    font-size: 13px;
+}
+QMenuBar {
+    background-color: #2B2D30;
+    border-bottom: 1px solid #3A3D42;
+}
+QMenuBar::item:selected {
+    background-color: #3E4147;
+}
+QMenu {
+    background-color: #2B2D30;
+    border: 1px solid #3A3D42;
+}
+QMenu::item:selected {
+    background-color: #4A4E55;
+}
+QStatusBar {
+    background-color: #2B2D30;
+    color: #B8BCC2;
+}
+QLabel {
+    background: transparent;
+}
+QPushButton {
+    background-color: #3A3D42;
+    border: 1px solid #4A4E55;
+    border-radius: 4px;
+    padding: 5px 12px;
+}
+QPushButton:hover {
+    background-color: #474B52;
+}
+QPushButton:pressed {
+    background-color: #33363B;
+}
+QPushButton:disabled {
+    color: #6B7077;
+    background-color: #2E3034;
+}
+QLineEdit, QComboBox {
+    background-color: #1D1E21;
+    border: 1px solid #3A3D42;
+    border-radius: 4px;
+    padding: 4px 8px;
+}
+QLineEdit:focus, QComboBox:focus {
+    border-color: #4CA3A0;
+}
+QSlider::groove:horizontal {
+    height: 4px;
+    background: #3A3D42;
+    border-radius: 2px;
+}
+QSlider::handle:horizontal {
+    width: 14px;
+    margin: -5px 0;
+    border-radius: 7px;
+    background: #4CA3A0;
+}
+QSlider::sub-page:horizontal {
+    background: #4CA3A0;
+    border-radius: 2px;
+}
+QTableView {
+    background-color: #1B1C1F;
+    alternate-background-color: #202124;
+    gridline-color: #33363B;
+    border: 1px solid #3A3D42;
+    selection-background-color: #355C64;
+    selection-color: #FFFFFF;
+}
+QHeaderView::section {
+    background-color: #2B2D30;
+    color: #D3D6DA;
+    border: none;
+    border-right: 1px solid #3A3D42;
+    border-bottom: 1px solid #3A3D42;
+    padding: 5px 8px;
+}
+QTabWidget::pane {
+    border: 1px solid #3A3D42;
+}
+QTabBar::tab {
+    background: #2B2D30;
+    padding: 6px 16px;
+    border: 1px solid #3A3D42;
+    border-bottom: none;
+}
+QTabBar::tab:selected {
+    background: #1B1C1F;
+    color: #FFFFFF;
+}
+QGroupBox {
+    border: 1px solid #3A3D42;
+    border-radius: 4px;
+    margin-top: 8px;
+    padding-top: 6px;
+}
+QGroupBox::title {
+    subcontrol-origin: margin;
+    left: 10px;
+    padding: 0 4px;
+    color: #9FD0CE;
+}
+QScrollBar:vertical {
+    background: #26282B;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #4A4E55;
+    border-radius: 5px;
+    min-height: 24px;
+    margin: 2px;
+}
+QScrollBar::add-line, QScrollBar::sub-line {
+    height: 0;
+}
+QMessageBox {
+    background-color: #232428;
+}
