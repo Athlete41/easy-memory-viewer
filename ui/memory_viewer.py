@@ -237,6 +237,9 @@ class MemoryViewer(QWidget):
         self.viewport_changed.emit(address, size)
         self.jump_clicked_signal.emit(addrExpression if isinstance(addrExpression, str) else f"0x{addrExpression:X}", size)
 
+        self.addr_edit.setText(addrExpression if isinstance(addrExpression, str) else f"0x{addrExpression:X}")
+        self.size_edit.setText(f"0x{size:X}")
+
     @property
     def bin_viewer(self) -> BinViewer:
         return self._bin_viewer

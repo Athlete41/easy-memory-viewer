@@ -312,7 +312,6 @@ class EasyMemoryViewerWindow(QMainWindow):
             jump_history = data["jump_history"][-self._max_jump_history:]
             self._jump_history = [(addrExpr, size) for addrExpr, size in jump_history]
             self._update_jump_history_menu()
-            print(self._jump_history)
         self._update_timer()
 
     def _update_recent_menu(self):
