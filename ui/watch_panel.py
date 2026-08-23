@@ -441,3 +441,29 @@ class WatchPanel(QWidget):
         if reply == QMessageBox.StandardButton.Yes:
             self.clear()
 
+
+    def serialize(self) -> dict:
+        """序列化所有观察项"""
+        return {
+            "entries": [
+                {
+                    "name": entry.name,
+                    "expression": entry.expression,
+                    "data_type": entry.data_type.value,
+                }
+                for entry in self._model.get_entries()
+            ]
+        }
+
+    def deserialize(self, data: dict):
+        """反序列化观察项"""
+        self.clear()
+        if "entries" not in data:
+            return
+        for item in data["entries"]:
+            data_type = DataType.from_string(item["data_type"])
+            self.add_entry(
+                item["name"],
+                item["expression"],
+                data_type
+            )

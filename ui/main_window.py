@@ -5,7 +5,7 @@ from typing import Dict
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QSplitter,
     QTabWidget, QLabel, QComboBox, QPushButton, QCheckBox,
-    QDockWidget, QFrame, QGroupBox, QMessageBox
+    QDockWidget, QFrame, QGroupBox, QMessageBox, QFileDialog
 )
 from PySide6.QtCore import QTimer, Qt
 from PySide6.QtGui import QAction
@@ -27,6 +27,8 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.setWindowTitle("Easy Memory Viewer")
         self.setGeometry(50, 50, 1400, 800)
 
+        self._recent_files: list[str] = []
+        self._max_recent_files = 10
         # ---- 核心依赖 ----
         self.tool = CrackerMemTool()
         self.fetcher = Fetcher(self.tool, merge_threshold=0x100, chunk_size=0x1000)
@@ -276,15 +278,21 @@ class EasyMemoryViewerWindow(QMainWindow):
     # ================= 配置加载/保存 =================
 
     def serialize(self) -> dict:
+        """启动配置"""
         return {
             "viewer": self.viewer.serialize(),
+            "search_panel": self.search_panel.serialize(),
             "timer_interval": self.timer_interval,
             "timer_enabled": self.timer_check.isChecked(),
+            "recent_files": self._recent_files,
         }
 
     def deserialize(self, data: dict):
+        """启动配置"""
         if "viewer" in data:
             self.viewer.deserialize(data["viewer"])
+        if "search_panel" in data:
+            self.search_panel.deserialize(data["search_panel"])
         if "timer_interval" in data:
             idx = self.interval_combo.findData(data["timer_interval"])
             if idx >= 0:
@@ -293,7 +301,38 @@ class EasyMemoryViewerWindow(QMainWindow):
         if "timer_enabled" in data:
             self.timer_enabled = data["timer_enabled"]
             self.timer_check.setChecked(self.timer_enabled)
+        if "recent_files" in data:
+            self._recent_files = data["recent_files"][:self._max_recent_files]
+            self._update_recent_menu()
         self._update_timer()
+
+    def _update_recent_menu(self):
+        """更新最近文件菜单"""
+        self._recent_menu.clear()
+        if not self._recent_files:
+            no_action = QAction("（无最近文件）", self)
+            no_action.setEnabled(False)
+            self._recent_menu.addAction(no_action)
+            return
+        
+        for file_path in self._recent_files:
+            # 只显示文件名，完整路径作为 tooltip
+            name = os.path.basename(file_path)
+            action = QAction(name, self)
+            action.setToolTip(file_path)
+            action.triggered.connect(lambda checked, path=file_path: self._on_load_search_data(path))
+            self._recent_menu.addAction(action)
+        
+        self._recent_menu.addSeparator()
+        clear_action = QAction("清除最近文件", self)
+        clear_action.triggered.connect(self._clear_recent_files)
+        self._recent_menu.addAction(clear_action)
+
+    def _clear_recent_files(self):
+        """清除最近文件列表"""
+        self._recent_files.clear()
+        self._update_recent_menu()
+        self.log_panel.debug("最近文件列表已清除")
 
     def _load_config(self):
         config_path = "MVCfg.json"
@@ -317,7 +356,6 @@ class EasyMemoryViewerWindow(QMainWindow):
         super().closeEvent(event)
 
     # ================= 菜单 =================
-
     def _setup_menu(self):
         """创建菜单栏"""
         menubar = self.menuBar()
@@ -325,15 +363,23 @@ class EasyMemoryViewerWindow(QMainWindow):
         # ---- 文件菜单 ----
         file_menu = menubar.addMenu("文件")
 
-        load_action = QAction("加载候选文件", self)
+        # 加载 SearchPanel/WatchPanel 数据（手动）
+        load_action = QAction("加载观察数据", self)
         load_action.setShortcut("Ctrl+O")
-        load_action.triggered.connect(self._on_load_candidates)
+        load_action.triggered.connect(self._on_load_search_data)
         file_menu.addAction(load_action)
 
-        save_action = QAction("保存候选文件", self)
+        # 保存 SearchPanel/WatchPanel 数据（手动）
+        save_action = QAction("保存观察数据", self)
         save_action.setShortcut("Ctrl+S")
-        save_action.triggered.connect(self._on_save_candidates)
+        save_action.triggered.connect(self._on_save_search_data)
         file_menu.addAction(save_action)
+
+        file_menu.addSeparator()
+
+        # 最近打开文件（显示最近加载的观察数据文件）
+        self._recent_menu = file_menu.addMenu("最近打开文件")
+        self._update_recent_menu()
 
         file_menu.addSeparator()
 
@@ -375,13 +421,59 @@ class EasyMemoryViewerWindow(QMainWindow):
         )
 
     # ================= 菜单槽函数 =================
+    def _on_save_search_data(self):
+        """手动保存 SearchPanel + WatchPanel 数据"""
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "保存观察数据",
+            "search_data.json",
+            "JSON Files (*.json)"
+        )
+        if not file_path:
+            return
 
-    def _on_load_candidates(self):
-        """加载候选文件（占位）"""
-        self.log_panel.info("加载候选文件 (占位)")
-        QMessageBox.information(self, "加载候选", "加载候选文件功能尚未实现 (占位)")
+        try:
+            data = {
+                "watch_panel": self.watch_panel.serialize(),
+            }
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, indent=4, ensure_ascii=False)
+            self.log_panel.info(f"观察数据已保存到: {file_path}")
+            self._add_recent_file(file_path)
+        except Exception as e:
+            self.log_panel.error(f"保存观察数据失败: {e}")
+            QMessageBox.warning(self, "保存失败", str(e))
 
-    def _on_save_candidates(self):
-        """保存候选文件（占位）"""
-        self.log_panel.info("保存候选文件 (占位)")
-        QMessageBox.information(self, "保存候选", "保存候选文件功能尚未实现 (占位)")
+    def _on_load_search_data(self, file_path: str = None):
+        """手动加载 SearchPanel + WatchPanel 数据"""
+        if file_path is None:
+            file_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "加载观察数据",
+                ".",
+                "JSON Files (*.json)"
+            )
+        if not file_path:
+            return
+
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+            
+            if "watch_panel" in data:
+                self.watch_panel.deserialize(data["watch_panel"])
+            
+            self.log_panel.info(f"观察数据已加载: {file_path}")
+            self._add_recent_file(file_path)
+        except Exception as e:
+            self.log_panel.error(f"加载观察数据失败: {e}")
+            QMessageBox.warning(self, "加载失败", str(e))
+
+    def _add_recent_file(self, file_path: str):
+        """添加到最近文件列表"""
+        if file_path in self._recent_files:
+            self._recent_files.remove(file_path)
+        self._recent_files.insert(0, file_path)
+        if len(self._recent_files) > self._max_recent_files:
+            self._recent_files = self._recent_files[:self._max_recent_files]
+        self._update_recent_menu()

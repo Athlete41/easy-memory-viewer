@@ -529,3 +529,22 @@ class SearchPanel(QWidget):
         elif col == 0:  # 地址列 -> 激活跳转
             self.item_activated.emit(result.address, result.data_type, result.value)
         # 其他列（初始值列）忽略
+
+    def serialize(self) -> dict:
+        """序列化搜索面板配置（仅 UI 配置，不保存列表）"""
+        return {
+            "data_type": self.type_combo.currentText(),
+            "align": self.align_combo.currentText(),
+        }
+
+    def deserialize(self, data: dict):
+        """反序列化搜索配置（只恢复配置，不清除搜索结果）"""
+        if "data_type" in data:
+            idx = self.type_combo.findText(data["data_type"])
+            if idx >= 0:
+                self.type_combo.setCurrentIndex(idx)
+
+        if "align" in data:
+            idx = self.align_combo.findText(data["align"])
+            if idx >= 0:
+                self.align_combo.setCurrentIndex(idx)
