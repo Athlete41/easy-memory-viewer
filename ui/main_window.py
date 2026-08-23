@@ -320,7 +320,7 @@ class EasyMemoryViewerWindow(QMainWindow):
             name = os.path.basename(file_path)
             action = QAction(name, self)
             action.setToolTip(file_path)
-            action.triggered.connect(lambda checked, path=file_path: self._on_load_search_data(path))
+            action.triggered.connect(lambda checked, path=file_path: self._on_load_watch_data(path))
             self._recent_menu.addAction(action)
         
         self._recent_menu.addSeparator()
@@ -366,13 +366,13 @@ class EasyMemoryViewerWindow(QMainWindow):
         # 加载 SearchPanel/WatchPanel 数据（手动）
         load_action = QAction("加载观察数据", self)
         load_action.setShortcut("Ctrl+O")
-        load_action.triggered.connect(self._on_load_search_data)
+        load_action.triggered.connect(self._on_load_watch_data)
         file_menu.addAction(load_action)
 
         # 保存 SearchPanel/WatchPanel 数据（手动）
         save_action = QAction("保存观察数据", self)
         save_action.setShortcut("Ctrl+S")
-        save_action.triggered.connect(self._on_save_search_data)
+        save_action.triggered.connect(self._on_save_watch_data)
         file_menu.addAction(save_action)
 
         file_menu.addSeparator()
@@ -421,8 +421,8 @@ class EasyMemoryViewerWindow(QMainWindow):
         )
 
     # ================= 菜单槽函数 =================
-    def _on_save_search_data(self):
-        """手动保存 SearchPanel + WatchPanel 数据"""
+    def _on_save_watch_data(self):
+        """手动保存观察数据"""
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "保存观察数据",
@@ -444,9 +444,9 @@ class EasyMemoryViewerWindow(QMainWindow):
             self.log_panel.error(f"保存观察数据失败: {e}")
             QMessageBox.warning(self, "保存失败", str(e))
 
-    def _on_load_search_data(self, file_path: str = None):
-        """手动加载 SearchPanel + WatchPanel 数据"""
-        if file_path is None:
+    def _on_load_watch_data(self, file_path: str = None):
+        """手动加载观察数据"""
+        if not file_path:
             file_path, _ = QFileDialog.getOpenFileName(
                 self,
                 "加载观察数据",
