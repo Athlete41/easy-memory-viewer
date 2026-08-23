@@ -452,26 +452,18 @@ class BinViewer(QWidget):
         value_text = item.text() if item else ""
         # 注意：这里 value_text 是显示字符串，如需原生值可以额外解析
         # 简化：把当前显示文本传出去，外界自行解析
-
         menu = QMenu(self)
-        self._modify_action = menu.addAction("修改值")
-        self._copy_addr_action = menu.addAction("复制地址")
-        self._copy_value_action = menu.addAction("复制值")
+
+        self._add_builtin_menu_items(menu)
 
         self.context_menu_requested.emit(
             menu,
             row,
             col,
             address,
-            value_text,          # 或者传原始值，由你自己决定
-            fmt.data_type        # 数据类型
+            value_text,
+            fmt.data_type
         )
-
-        menu = QMenu(self)
-
-        self._add_builtin_menu_items(menu)
-        self.context_menu_requested.emit(menu, row, col, address, value_text, fmt.data_type)
-
 
         action = menu.exec(self.table.viewport().mapToGlobal(pos))
         self._handle_menu_action(action, address, value_text, fmt.data_type)

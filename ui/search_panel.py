@@ -186,12 +186,10 @@ class SearchPanel(QWidget):
     4. clear() 清空
     """
 
-    # 信号：双击当前值列请求修改 (address, data_type, value_str)
     modify_requested = Signal(int, str, DataType)
-    # 信号：双击地址列激活 (address, data_type, value) 供跳转等
     item_activated = Signal(int, DataType, object)
-    # 日志信号
     log_signal = Signal(LogLevel, str)
+    context_menu_requested = Signal(QMenu, int, int, SearchResult)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -446,13 +444,43 @@ class SearchPanel(QWidget):
         shortcut.activated.connect(view.selectAll)
 
     def _show_table_menu(self, view, pos):
-        menu = QMenu(view)
-        copy_selected = menu.addAction("复制选中行")
-        copy_cell = menu.addAction("复制单元格")
+        """显示右键菜单（支持外部扩展）"""
         index = view.indexAt(pos)
-        copy_selected.triggered.connect(lambda: self._copy_selected_rows(view))
-        copy_cell.triggered.connect(lambda: self._copy_cell(view, index))
-        menu.exec(view.viewport().mapToGlobal(pos))
+        if not index.isValid():
+            return
+
+        row, col = index.row(), index.column()
+        result = self._model.get_result_at(row)
+        if not result:
+            return
+
+        menu = QMenu(self)
+
+        self._add_builtin_menu_items(menu)
+        self.context_menu_requested.emit(menu, row, col, result)
+        action = menu.exec(view.viewport().mapToGlobal(pos))
+        self._handle_menu_action(action, view, index)
+
+
+    def _add_builtin_menu_items(self, menu):
+        """内部默认菜单项"""
+        self._copy_selected_action = menu.addAction("复制选中行")
+        self._copy_cell_action = menu.addAction("复制单元格")
+
+
+    def _handle_menu_action(self, action, view, index):
+        """处理默认菜单项（外部插入的由外部自己处理）"""
+        if action == self._copy_selected_action:
+            self._copy_selected_rows(view)
+        elif action == self._copy_cell_action:
+            self._copy_cell(view, index)
+
+    def _handle_menu_action(self, action, view, index):
+        """处理默认菜单项（外部插入的由外部自己处理）"""
+        if action == self._copy_selected_action:
+            self._copy_selected_rows(view)
+        elif action == self._copy_cell_action:
+            self._copy_cell(view, index)
 
     def _copy_selected_rows(self, view):
         model = view.model()
@@ -470,7 +498,6 @@ class SearchPanel(QWidget):
     def _copy_cell(self, view, index):
         if index.isValid():
             QApplication.clipboard().setText(str(index.data(Qt.DisplayRole) or ""))
-
     # ================= 槽函数 =================
 
     def _on_type_changed(self, text: str):
