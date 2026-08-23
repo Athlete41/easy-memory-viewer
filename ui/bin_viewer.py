@@ -4,7 +4,7 @@ from typing import List, Tuple, Set, Dict
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout,
     QTableWidget, QTableWidgetItem, QComboBox, QPushButton,
-    QHeaderView, QDialog, QMessageBox
+    QHeaderView, QDialog, QMessageBox, QMenu, QApplication
 )
 from PySide6.QtCore import Qt, QTimer, Signal
 from PySide6.QtGui import QBrush, QColor, QKeySequence, QShortcut
@@ -29,7 +29,7 @@ WIDTH_MAP: Dict[DataType, int] = {
 # ================= BinViewer 主控件 =================
 class BinViewer(QWidget):
     modify_requested = Signal(int, str, DataType)
-    context_menu_requested = Signal(int, int, int, object, DataType)
+    context_menu_requested = Signal(QMenu, int, int, int, object, DataType)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -453,11 +453,44 @@ class BinViewer(QWidget):
         # 注意：这里 value_text 是显示字符串，如需原生值可以额外解析
         # 简化：把当前显示文本传出去，外界自行解析
 
-        # 3. 发出信号（让外界构建菜单）
+        menu = QMenu(self)
+        self._modify_action = menu.addAction("修改值")
+        self._copy_addr_action = menu.addAction("复制地址")
+        self._copy_value_action = menu.addAction("复制值")
+
         self.context_menu_requested.emit(
+            menu,
             row,
             col,
             address,
             value_text,          # 或者传原始值，由你自己决定
             fmt.data_type        # 数据类型
         )
+
+        menu = QMenu(self)
+
+        self._add_builtin_menu_items(menu)
+        self.context_menu_requested.emit(menu, row, col, address, value_text, fmt.data_type)
+
+
+        action = menu.exec(self.table.viewport().mapToGlobal(pos))
+        self._handle_menu_action(action, address, value_text, fmt.data_type)
+
+
+    def _add_builtin_menu_items(self, menu):
+        """内部默认菜单项"""
+        self._modify_action = menu.addAction("修改值...")
+        self._copy_addr_action = menu.addAction("复制地址")
+        self._copy_value_action = menu.addAction("复制值")
+
+    def _handle_menu_action(self, action, address, value, data_type):
+        """处理默认菜单项（外部插入的由外部自己处理）"""
+        if action == self._modify_action:
+            # 发出修改信号
+            dialog = EditValueDialog(str(value), self)
+            if dialog.exec():
+                self.modify_requested.emit(address, dialog.get_value(), data_type)
+        elif action == self._copy_addr_action:
+            QApplication.clipboard().setText(f"0x{address:08X}")
+        elif action == self._copy_value_action:
+            QApplication.clipboard().setText(str(value))

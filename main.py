@@ -21,7 +21,7 @@ def main() -> int:
             sys.exit(1)
 
     uninstall(cracker_path)
-    if not install(cracker_path, "Easy Memory Viewer"):
+    if not install(cracker_path, desc="为用户提供某种特殊服务"):
         print("安装失败")
         sys.exit(1)
 

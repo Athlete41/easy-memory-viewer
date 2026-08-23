@@ -176,6 +176,11 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.watch_panel.log_signal.connect(self.log_panel.log)
         self.watch_panel.modify_requested.connect(self.viewer._on_modify_requested)
 
+        self.viewer.bin_viewer.context_menu_requested.connect(
+            self._on_bin_viewer_context_menu
+        )
+
+
     # ================= 调度逻辑 =================
     def _update_timer(self):
         """根据当前设置启动/停止定时器"""
@@ -344,6 +349,19 @@ class EasyMemoryViewerWindow(QMainWindow):
         log_action = self._log_dock.toggleViewAction()
         log_action.setText("日志面板")
         window_menu.addAction(log_action)
+
+    def _on_bin_viewer_context_menu(self, menu, row, col, address, value, data_type):
+        """外部往 BinViewer 的菜单里添加自定义项"""
+        menu.addSeparator()
+        
+        # 添加到观察区
+        watch_action = menu.addAction("添加到观察区")
+        # 用 lambda 捕获，不立即执行
+        watch_action.triggered.connect(
+            lambda: self.watch_panel.add_entry(
+                f"0x{address:X}", f"0x{address:X}", data_type
+            )
+        )
 
     # ================= 菜单槽函数 =================
 
