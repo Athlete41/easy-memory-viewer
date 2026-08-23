@@ -179,7 +179,7 @@ class MemoryViewer(QWidget):
 
         # 信息行
         hex_row = QHBoxLayout()
-        self.hex_label = QLabel("当前: 0x00000000 (0x100 字节)")
+        self.hex_label = QLabel("当前: 0x00000000 (0x100 字)")
         hex_row.addWidget(self.hex_label)
         hex_row.addStretch()
 
@@ -232,8 +232,8 @@ class MemoryViewer(QWidget):
 
         self._view_address = address
         self._view_range = size
-        self.hex_label.setText(f"当前: 0x{address:X} (0x{size:X} 字节)")
-        self.log_signal.emit(LogLevel.INFO, f"跳转到 0x{address:X} (0x{size:X} 字节)")
+        self.hex_label.setText(f"当前: 0x{address:X} (0x{size:X} 字)")
+        self.log_signal.emit(LogLevel.INFO, f"跳转到 0x{address:X} (0x{size:X} 字)")
         self.viewport_changed.emit(address, size)
         self.jump_clicked_signal.emit(addrExpression if isinstance(addrExpression, str) else f"0x{addrExpression:X}", size)
 

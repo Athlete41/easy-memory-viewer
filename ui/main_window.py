@@ -473,7 +473,7 @@ class EasyMemoryViewerWindow(QMainWindow):
         for expr, size in self._jump_history:
             # 截断显示，避免菜单太长
             display_text = expr if len(expr) <= 40 else expr[:37] + "..."
-            display_text = f"({display_text}, 0x{size:X})"
+            display_text = f"{display_text}, (0x{size:X} 字)"
             action = QAction(display_text, self)
             action.setToolTip(expr)
             action.triggered.connect(lambda checked, e=expr: self.viewer.jump_to(e, size))
