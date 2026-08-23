@@ -371,13 +371,13 @@ class EasyMemoryViewerWindow(QMainWindow):
         # ---- 文件菜单 ----
         file_menu = menubar.addMenu("文件")
 
-        # 加载 SearchPanel/WatchPanel 数据（手动）
+        # 加载 WatchPanel 数据（手动）
         load_action = QAction("加载观察数据", self)
         load_action.setShortcut("Ctrl+O")
         load_action.triggered.connect(self._on_load_watch_data)
         file_menu.addAction(load_action)
 
-        # 保存 SearchPanel/WatchPanel 数据（手动）
+        # 保存 WatchPanel 数据（手动）
         save_action = QAction("保存观察数据", self)
         save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self._on_save_watch_data)
@@ -388,6 +388,14 @@ class EasyMemoryViewerWindow(QMainWindow):
         # 最近打开文件（显示最近加载的观察数据文件）
         self._recent_menu = file_menu.addMenu("最近打开文件")
         self._update_recent_menu()
+
+        file_menu.addSeparator()
+
+        # 导出内存数据（新增）
+        export_action = QAction("导出内存数据", self)
+        export_action.setShortcut("Ctrl+E")
+        export_action.triggered.connect(self._on_export_memory_data)
+        file_menu.addAction(export_action)
 
         file_menu.addSeparator()
 
@@ -485,6 +493,15 @@ class EasyMemoryViewerWindow(QMainWindow):
         self._update_jump_history_menu()
         self.log_panel.debug("跳转历史已清空")
 
+    def _add_recent_file(self, file_path: str):
+        """添加到最近文件列表"""
+        if file_path in self._recent_files:
+            self._recent_files.remove(file_path)
+        self._recent_files.insert(0, file_path)
+        if len(self._recent_files) > self._max_recent_files:
+            self._recent_files = self._recent_files[:self._max_recent_files]
+        self._update_recent_menu()
+
     # ================= 菜单槽函数 =================
     def _on_save_watch_data(self):
         """手动保存观察数据"""
@@ -534,11 +551,47 @@ class EasyMemoryViewerWindow(QMainWindow):
             self.log_panel.error(f"加载观察数据失败: {e}")
             QMessageBox.warning(self, "加载失败", str(e))
 
-    def _add_recent_file(self, file_path: str):
-        """添加到最近文件列表"""
-        if file_path in self._recent_files:
-            self._recent_files.remove(file_path)
-        self._recent_files.insert(0, file_path)
-        if len(self._recent_files) > self._max_recent_files:
-            self._recent_files = self._recent_files[:self._max_recent_files]
-        self._update_recent_menu()
+    def _on_export_memory_data(self):
+        """导出 BinViewer 当前内存数据为二进制文件"""
+        # 获取数据
+        data = self.viewer.bin_viewer.get_data()
+        if not data:
+            QMessageBox.warning(self, "导出失败", "没有数据可导出")
+            return
+
+        # 弹出保存对话框
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "导出内存数据",
+            "memory_dump.bin",
+            "Binary Files (*.bin);;All Files (*)"
+        )
+        if not file_path:
+            return
+
+        try:
+            # 保存二进制数据
+            with open(file_path, 'wb') as f:
+                f.write(data)
+            
+            # 同时保存一个 .info 文件记录基址和大小
+            info_path = file_path + ".info"
+            with open(info_path, 'w', encoding='utf-8') as f:
+                f.write(f"# 内存导出信息\n")
+                f.write(f"base_address: 0x{self.viewer.bin_viewer._base_address:X}\n")
+                f.write(f"size: {len(data)} (0x{len(data):X})\n")
+                f.write(f"view_address: 0x{self.viewer._view_address:X}\n")
+            
+            self.log_panel.info(f"内存数据已导出到: {file_path} ({len(data)} 字节)")
+            self.log_panel.debug(f"附带信息: {info_path}")
+            
+            QMessageBox.information(
+                self,
+                "导出成功",
+                f"数据已保存到:\n{file_path}\n\n"
+                f"大小: {len(data)} 字节 (0x{len(data):X})\n"
+                f"基址: 0x{self.viewer.bin_viewer._base_address:X}"
+            )
+        except Exception as e:
+            self.log_panel.error(f"导出内存数据失败: {e}")
+            QMessageBox.warning(self, "导出失败", str(e))
