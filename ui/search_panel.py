@@ -459,45 +459,42 @@ class SearchPanel(QWidget):
         self._add_builtin_menu_items(menu)
         self.context_menu_requested.emit(menu, row, col, result)
         action = menu.exec(view.viewport().mapToGlobal(pos))
-        self._handle_menu_action(action, view, index)
+        self._handle_menu_action(action, view, index, result)
 
 
     def _add_builtin_menu_items(self, menu):
         """内部默认菜单项"""
         self._copy_selected_action = menu.addAction("复制选中行")
         self._copy_cell_action = menu.addAction("复制单元格")
+        self._modify_action = menu.addAction("修改值")
 
 
-    def _handle_menu_action(self, action, view, index):
+    def _handle_menu_action(self, action, view, index, result):
         """处理默认菜单项（外部插入的由外部自己处理）"""
         if action == self._copy_selected_action:
-            self._copy_selected_rows(view)
+            model = view.model()
+            if not model:
+                return
+            rows = sorted({index.row() for index in view.selectionModel().selectedRows()})
+            if not rows:
+                return
+            lines = []
+            for row in rows:
+                parts = [str(model.index(row, col).data(Qt.DisplayRole) or "") for col in range(model.columnCount())]
+                lines.append("\t".join(parts))
+            QApplication.clipboard().setText("\n".join(lines))
         elif action == self._copy_cell_action:
-            self._copy_cell(view, index)
-
-    def _handle_menu_action(self, action, view, index):
-        """处理默认菜单项（外部插入的由外部自己处理）"""
-        if action == self._copy_selected_action:
-            self._copy_selected_rows(view)
-        elif action == self._copy_cell_action:
-            self._copy_cell(view, index)
-
-    def _copy_selected_rows(self, view):
-        model = view.model()
-        if not model:
-            return
-        rows = sorted({index.row() for index in view.selectionModel().selectedRows()})
-        if not rows:
-            return
-        lines = []
-        for row in rows:
-            parts = [str(model.index(row, col).data(Qt.DisplayRole) or "") for col in range(model.columnCount())]
-            lines.append("\t".join(parts))
-        QApplication.clipboard().setText("\n".join(lines))
-
-    def _copy_cell(self, view, index):
-        if index.isValid():
             QApplication.clipboard().setText(str(index.data(Qt.DisplayRole) or ""))
+        elif action == self._modify_action:
+            current_value_str = self._model.data(index, Qt.DisplayRole)
+            if not current_value_str or current_value_str == "":
+                return
+            dialog = EditValueDialog(current_value_str, self)
+            if dialog.exec() == QDialog.DialogCode.Accepted:
+                new_value_str = dialog.get_value()
+                self.modify_requested.emit(result.address, new_value_str, result.data_type)
+
+
     # ================= 槽函数 =================
 
     def _on_type_changed(self, text: str):

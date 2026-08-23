@@ -120,10 +120,6 @@ class _WatchTableModel(QAbstractTableModel):
                 return
 
 
-
-
-# ================= WatchPanel 主类 =================
-
 class WatchPanel(QWidget):
     """
     观察面板 - 存储表达式，不缓存解析结果。
@@ -141,6 +137,7 @@ class WatchPanel(QWidget):
     log_signal = Signal(LogLevel, str)
     entry_added = Signal(int)   # entry_id
     entry_removed = Signal(int) # entry_id
+    context_menu_requested = Signal(QMenu, int, WatchEntry)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -267,8 +264,9 @@ class WatchPanel(QWidget):
         count = len(self._model.get_entries())
         self.count_label.setText(f"观察项: {count} 个")
 
+
     def _show_table_menu(self, pos):
-        """显示右键菜单（无跳转）"""
+        """显示右键菜单（支持外部扩展）"""
         index = self.table.indexAt(pos)
         if not index.isValid():
             return
@@ -280,26 +278,66 @@ class WatchPanel(QWidget):
 
         menu = QMenu(self)
 
-        # 删除
-        delete_action = menu.addAction("删除此项")
-        menu.addSeparator()
+        # 1. 添加内部默认菜单项
+        self._add_builtin_menu_items(menu, entry)
 
-        # 复制
-        copy_expr_action = menu.addAction("复制表达式")
-        copy_value_action = menu.addAction("复制值")
+        # 2. 发射信号让外部添加自定义项
+        self.context_menu_requested.emit(menu, row, entry)
 
+        # 3. 执行菜单
         action = menu.exec(self.table.viewport().mapToGlobal(pos))
 
-        if action == delete_action:
+        # 4. 处理默认菜单项
+        self._handle_menu_action(action, entry)
+
+    def _add_builtin_menu_items(self, menu, entry):
+        """内部默认菜单项"""
+        # 复制此项（复制一份新条目）
+        self._duplicate_action = menu.addAction("复制此项")
+        menu.addSeparator()
+        
+        # 删除
+        self._delete_action = menu.addAction("删除此项")
+        menu.addSeparator()
+        
+        # 复制表达式到剪贴板
+        self._copy_expr_action = menu.addAction("复制表达式")
+        # 复制值到剪贴板
+        self._copy_value_action = menu.addAction("复制值")
+
+    def _handle_menu_action(self, action, entry):
+        """处理默认菜单项（外部插入的由外部自己处理）"""
+        if action == self._duplicate_action:
+            # 复制一份新条目（不是复制到剪贴板）
+            self._duplicate_entry(entry)
+        elif action == self._delete_action:
             self.remove_entry(entry.id)
-        elif action == copy_expr_action:
+        elif action == self._copy_expr_action:
             QApplication.clipboard().setText(entry.expression)
-        elif action == copy_value_action:
+        elif action == self._copy_value_action:
             if entry.value is not None:
                 QApplication.clipboard().setText(str(entry.value))
 
+    def _duplicate_entry(self, entry):
+        """复制一份新的观察项（名称加后缀，重新生成 ID）"""
+        new_name = f"{entry.name} (副本)"
+        # 如果有同名，加数字后缀
+        existing_names = [e.name for e in self._model.get_entries()]
+        if new_name in existing_names:
+            i = 1
+            while f"{entry.name} (副本{i})" in existing_names:
+                i += 1
+            new_name = f"{entry.name} (副本{i})"
+        
+        self.add_entry(
+            new_name,
+            entry.expression,
+            entry.data_type
+        )
+        self.log_signal.emit(LogLevel.INFO, f"复制观察项: {entry.name} → {new_name}")
+
     def _on_cell_double_clicked(self, index):
-        """双击单元格（无跳转）"""
+        """双击单元格"""
         if not index.isValid():
             return
 

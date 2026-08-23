@@ -168,17 +168,15 @@ class EasyMemoryViewerWindow(QMainWindow):
 
         self.viewer.viewport_changed.connect(self._on_viewport_changed)
         self.viewer.log_signal.connect(self.log_panel.log)
+        self.viewer.bin_viewer.context_menu_requested.connect(self._on_bin_viewer_context_menu)
 
         self.search_panel.item_activated.connect(self._on_search_item_activated)
         self.search_panel.log_signal.connect(self.log_panel.log)
         self.search_panel.modify_requested.connect(self.viewer._on_modify_requested)
+        self.search_panel.context_menu_requested.connect(self._on_search_context_menu)
 
         self.watch_panel.log_signal.connect(self.log_panel.log)
         self.watch_panel.modify_requested.connect(self.viewer._on_modify_requested)
-
-        self.viewer.bin_viewer.context_menu_requested.connect(
-            self._on_bin_viewer_context_menu
-        )
 
 
     # ================= 调度逻辑 =================
@@ -360,6 +358,19 @@ class EasyMemoryViewerWindow(QMainWindow):
         watch_action.triggered.connect(
             lambda: self.watch_panel.add_entry(
                 f"0x{address:X}", f"0x{address:X}", data_type
+            )
+        )
+
+    def _on_search_context_menu(self, menu, row, col, result):
+        """外部往 SearchPanel 的菜单里添加自定义项"""
+        # 可以直接往 menu 里添加
+        menu.addSeparator()
+        watch_action = menu.addAction("添加到观察区")
+        watch_action.triggered.connect(
+            lambda: self.watch_panel.add_entry(
+                f"搜索 @ 0x{result.address:X}",
+                f"0x{result.address:X}",
+                result.data_type
             )
         )
 
