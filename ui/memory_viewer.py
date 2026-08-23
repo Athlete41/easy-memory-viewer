@@ -124,6 +124,7 @@ class MemoryViewer(QWidget):
     
     viewport_changed = Signal('long long', 'long long')
     log_signal = Signal(LogLevel, str)  # (level, message) 日志信号
+    jump_clicked_signal = Signal(str, int)  # (address, size) 跳转信号
 
     def __init__(self, memory_tool: MemoryTool, parent=None):
         super().__init__(parent)
@@ -234,6 +235,7 @@ class MemoryViewer(QWidget):
         self.hex_label.setText(f"当前: 0x{address:X} (0x{size:X} 字节)")
         self.log_signal.emit(LogLevel.INFO, f"跳转到 0x{address:X} (0x{size:X} 字节)")
         self.viewport_changed.emit(address, size)
+        self.jump_clicked_signal.emit(addrExpression if isinstance(addrExpression, str) else f"0x{addrExpression:X}", size)
 
     @property
     def bin_viewer(self) -> BinViewer:

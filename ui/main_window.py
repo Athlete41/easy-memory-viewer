@@ -29,6 +29,10 @@ class EasyMemoryViewerWindow(QMainWindow):
 
         self._recent_files: list[str] = []
         self._max_recent_files = 10
+
+        self._jump_history: list[tuple[str, int]] = []
+        self._max_jump_history = 50
+
         # ---- 核心依赖 ----
         self.tool = CrackerMemTool()
         self.fetcher = Fetcher(self.tool, merge_threshold=0x100, chunk_size=0x1000)
@@ -171,6 +175,7 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.viewer.viewport_changed.connect(self._on_viewport_changed)
         self.viewer.log_signal.connect(self.log_panel.log)
         self.viewer.bin_viewer.context_menu_requested.connect(self._on_bin_viewer_context_menu)
+        self.viewer.jump_clicked_signal.connect(self._add_jump_history)
 
         self.search_panel.item_activated.connect(self._on_search_item_activated)
         self.search_panel.log_signal.connect(self.log_panel.log)
@@ -278,17 +283,16 @@ class EasyMemoryViewerWindow(QMainWindow):
     # ================= 配置加载/保存 =================
 
     def serialize(self) -> dict:
-        """启动配置"""
         return {
             "viewer": self.viewer.serialize(),
             "search_panel": self.search_panel.serialize(),
             "timer_interval": self.timer_interval,
             "timer_enabled": self.timer_check.isChecked(),
             "recent_files": self._recent_files,
+            "jump_history": self._jump_history,  # ← 新增
         }
 
     def deserialize(self, data: dict):
-        """启动配置"""
         if "viewer" in data:
             self.viewer.deserialize(data["viewer"])
         if "search_panel" in data:
@@ -304,6 +308,11 @@ class EasyMemoryViewerWindow(QMainWindow):
         if "recent_files" in data:
             self._recent_files = data["recent_files"][:self._max_recent_files]
             self._update_recent_menu()
+        if "jump_history" in data:
+            jump_history = data["jump_history"][-self._max_jump_history:]
+            self._jump_history = [(addrExpr, size) for addrExpr, size in jump_history]
+            self._update_jump_history_menu()
+            print(self._jump_history)
         self._update_timer()
 
     def _update_recent_menu(self):
@@ -394,6 +403,18 @@ class EasyMemoryViewerWindow(QMainWindow):
         log_action.setText("日志面板")
         window_menu.addAction(log_action)
 
+        # ---- 查看菜单 ----
+        view_menu = menubar.addMenu("查看")
+        
+        # 跳转历史子菜单
+        self._jump_history_menu = view_menu.addMenu("跳转历史")
+        self._update_jump_history_menu()  # 初始化
+
+        # 清空历史
+        clear_history_action = QAction("清空跳转历史", self)
+        clear_history_action.triggered.connect(self._clear_jump_history)
+        view_menu.addAction(clear_history_action)
+
     def _on_bin_viewer_context_menu(self, menu, row, col, address, value, data_type):
         """外部往 BinViewer 的菜单里添加自定义项"""
         menu.addSeparator()
@@ -419,6 +440,51 @@ class EasyMemoryViewerWindow(QMainWindow):
                 result.data_type
             )
         )
+
+
+    def _add_jump_history(self, expression: str, size: int):
+        """添加跳转历史，去重+长度限制"""
+        if not expression:
+            return
+        
+        # 如果和上一条相同，不记录
+        if self._jump_history and self._jump_history[-1] == (expression, size):
+            return
+        
+        self._jump_history.append((expression, size))
+        
+        # 限制长度
+        if len(self._jump_history) > self._max_jump_history:
+            self._jump_history = self._jump_history[-self._max_jump_history:]
+        
+        # 更新菜单
+        self._update_jump_history_menu()
+
+
+    def _update_jump_history_menu(self):
+        """更新跳转历史菜单"""
+        self._jump_history_menu.clear()
+        
+        if not self._jump_history:
+            no_action = QAction("（无跳转历史）", self)
+            no_action.setEnabled(False)
+            self._jump_history_menu.addAction(no_action)
+            return
+        
+        for expr, size in self._jump_history:
+            # 截断显示，避免菜单太长
+            display_text = expr if len(expr) <= 40 else expr[:37] + "..."
+            display_text = f"({display_text}, 0x{size:X})"
+            action = QAction(display_text, self)
+            action.setToolTip(expr)
+            action.triggered.connect(lambda checked, e=expr: self.viewer.jump_to(e, size))
+            self._jump_history_menu.addAction(action)
+
+    def _clear_jump_history(self):
+        """清空跳转历史"""
+        self._jump_history.clear()
+        self._update_jump_history_menu()
+        self.log_panel.debug("跳转历史已清空")
 
     # ================= 菜单槽函数 =================
     def _on_save_watch_data(self):
