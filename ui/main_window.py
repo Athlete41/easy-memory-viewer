@@ -150,7 +150,7 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.watch_panel = WatchPanel()
 
         self.right_tabs.addTab(self.search_panel, "🔍 搜索")
-        self.right_tabs.addTab(self.watch_panel, "📋 候选")
+        self.right_tabs.addTab(self.watch_panel, "📋 观察")
 
         splitter.addWidget(self.viewer)
         splitter.addWidget(self.right_tabs)
@@ -236,14 +236,18 @@ class EasyMemoryViewerWindow(QMainWindow):
             requests[f"search_{addr:X}"] = ReadRequest(f"search_{addr:X}", addr, 4)
 
         # 3. 观察项请求（WatchPanel 存的是表达式，需要解析）
+        address_map = {}
         for entry in self.watch_panel.get_entries():
             try:
                 address = self.viewer.getAddrByExpression(entry.expression)
+                address_map[entry.id] = address
             except Exception as e:
                 self.log_panel.warning(f"解析表达式失败: {entry.expression} -> {e}")
                 continue
             key = f"watch_{entry.id}"
             requests[key] = ReadRequest(key, address, entry.data_type.get_size())
+
+        self.watch_panel.update_addresses(address_map)
 
         self.fetcher.request(requests)
 
