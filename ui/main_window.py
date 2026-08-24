@@ -14,8 +14,8 @@ from ui.memory_viewer import MemoryViewer
 from ui.log_panel import LogPanel
 from ui.search_panel import SearchPanel
 from ui.watch_panel import WatchPanel, WatchEntry
-from core.memory_tool import CrackerMemTool
-from core.fetcher import Fetcher, ReadRequest
+from core.memory_engine import MemoryEngine
+from core.fetcher import ReadRequest
 from common.types import DataType
 
 
@@ -34,10 +34,9 @@ class EasyMemoryViewerWindow(QMainWindow):
         self._max_jump_history = 50
 
         # ---- 核心依赖 ----
-        self.tool = CrackerMemTool()
-        self.fetcher = Fetcher(self.tool, merge_threshold=0x100, chunk_size=0x1000)
-        self.fetcher.finished.connect(self._on_fetch_finished)
-        self.fetcher.error.connect(self._on_fetch_error)
+        self.engine = MemoryEngine()
+        self.engine.fetch_finished.connect(self._on_fetch_finished)
+        self.engine.fetch_error.connect(self._on_fetch_error)
 
         # ---- 定时器 ----
         self.timer = QTimer(self)
@@ -128,7 +127,7 @@ class EasyMemoryViewerWindow(QMainWindow):
 
         # ========== 下方：水平分割 ==========
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.viewer = MemoryViewer(self.tool)
+        self.viewer = MemoryViewer(self.engine)
 
         # 右侧 Tab
         self.right_tabs = QTabWidget()
@@ -175,15 +174,16 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.viewer.viewport_changed.connect(self._on_viewport_changed)
         self.viewer.log_signal.connect(self.log_panel.log)
         self.viewer.bin_viewer.context_menu_requested.connect(self._on_bin_viewer_context_menu)
+        self.viewer.bin_viewer.modify_requested.connect(self._on_modify_requested)
         self.viewer.jump_clicked_signal.connect(self._add_jump_history)
 
         self.search_panel.item_activated.connect(self._on_search_item_activated)
         self.search_panel.log_signal.connect(self.log_panel.log)
-        self.search_panel.modify_requested.connect(self.viewer.on_modify_requested)
+        self.search_panel.modify_requested.connect(self._on_modify_requested)
         self.search_panel.context_menu_requested.connect(self._on_search_context_menu)
 
         self.watch_panel.log_signal.connect(self.log_panel.log)
-        self.watch_panel.modify_requested.connect(self.viewer.on_modify_requested)
+        self.watch_panel.modify_requested.connect(self._on_modify_requested)
         self.watch_panel.context_menu_requested.connect(self._on_watch_context_menu)
 
 
@@ -210,7 +210,7 @@ class EasyMemoryViewerWindow(QMainWindow):
         self._on_timer_timeout()
 
     def _on_timer_timeout(self):
-        if not self.tool.isAttached():
+        if not self.engine.isAttached():
             return
         addr, size = self.viewer.get_viewport()
         if addr is None or size <= 0:
@@ -223,8 +223,8 @@ class EasyMemoryViewerWindow(QMainWindow):
         if self._last_addr is None:
             return
 
-        self.tool.attachedStatusGuard()
-        if not self.tool.isAttached():
+        self.engine.attachedStatusGuard()
+        if not self.engine.isAttached():
             return
 
         requests = {}
@@ -236,21 +236,25 @@ class EasyMemoryViewerWindow(QMainWindow):
         for addr in self.search_panel.get_addresses():
             requests[f"search_{addr:X}"] = ReadRequest(f"search_{addr:X}", addr, 4)
 
-        # 3. 观察项请求（WatchPanel 存的是表达式，需要解析）
+        # 3. 观察项请求（WatchPanel 存的是表达式，需要解析有效表达式）
         address_map = {}
         for entry in self.watch_panel.get_entries():
             try:
-                address = self.viewer.getAddrByExpression(entry.expression)
+                expression = self.watch_panel.get_effective_expression(entry)
+                address = self.engine.resolve_expression(
+                    expression,
+                    self.viewer.is_64bit_checkbox.isChecked(),
+                )
                 address_map[entry.id] = address
             except Exception as e:
-                self.log_panel.warning(f"解析表达式失败: {entry.expression} -> {e}")
+                self.log_panel.warning(f"解析表达式失败: {expression} -> {e}")
                 continue
             key = f"watch_{entry.id}"
             requests[key] = ReadRequest(key, address, entry.data_type.get_size())
 
         self.watch_panel.update_addresses(address_map)
 
-        self.fetcher.request(requests)
+        self.engine.fetch(requests)
 
     def _on_viewport_changed(self, address: int, size: int):
         self._last_addr = address
@@ -275,8 +279,16 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.watch_panel.update_values(results)
 
     def _on_fetch_error(self, err: str):
-        self.viewer.set_status(f"读取错误: {err}")
+        self.scheduler_status.setText(f"读取错误: {err}")
         self.log_panel.error(f"读取错误: {err}")
+
+    def _on_modify_requested(self, address, value_expr: str, data_type: DataType):
+        """统一的内存修改入口，经 MemoryEngine 写入。"""
+        try:
+            resolved = self.engine.modify(address, value_expr, data_type)
+            self.log_panel.info(f"修改成功: 0x{resolved:X} <- {value_expr}")
+        except Exception as e:
+            self.log_panel.error(f"修改失败: {address} <- {value_expr}: {e}")
 
     # ================= 搜索回调 =================
 
@@ -453,14 +465,15 @@ class EasyMemoryViewerWindow(QMainWindow):
         )
 
 
-    def _on_watch_context_menu(self, menu, row: int, entry: WatchEntry):
+    def _on_watch_context_menu(self, menu, entry: WatchEntry):
         """外部往 WatchPanel 的右键菜单里添加自定义项"""
         menu.addSeparator()
         
         # 跳转到该地址
-        jump_action = menu.addAction(f"跳转到 {entry.expression}")
+        expression = self.watch_panel.get_effective_expression(entry)
+        jump_action = menu.addAction(f"跳转到 {expression}")
         jump_action.triggered.connect(
-            lambda: self.viewer.jump_to(entry.expression, size=None)
+            lambda: self.viewer.jump_to(expression, size=None)
         )
 
         if entry.value is not None and isinstance(entry.value, int) and (entry.data_type == DataType.HEX32 or entry.data_type == DataType.HEX64):

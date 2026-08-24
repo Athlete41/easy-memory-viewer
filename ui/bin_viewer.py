@@ -13,6 +13,7 @@ from PySide6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 # ================= 格式配置 =================
 from common.types import FormatConfig, DataType, Endian, Encoding
 from ui.dialog import EditValueDialog
+from ui.clipboard_utils import copy_selected_cells
 
 WIDTH_MAP: Dict[DataType, int] = {
     DataType.BYTE: (50, 25),
@@ -102,8 +103,14 @@ class BinViewer(QWidget):
 
     def _connect_signals(self):
         self.table.cellDoubleClicked.connect(self._on_cell_double_clicked)
+        self._copy_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), self.table)
+        self._copy_shortcut.setContext(Qt.WidgetShortcut)
+        self._copy_shortcut.activated.connect(self._copy_selection)
         self.add_btn.clicked.connect(self._on_add_format)
         self.remove_btn.clicked.connect(self._on_remove_format)
+
+    def _copy_selection(self):
+        copy_selected_cells(self.table)
 
     def _on_add_format(self):
         self.add_format_group(FormatConfig(DataType.INT32, Endian.LITTLE, encoding='utf-8'))
@@ -474,6 +481,7 @@ class BinViewer(QWidget):
         self._modify_action = menu.addAction("修改值...")
         self._copy_addr_action = menu.addAction("复制地址")
         self._copy_value_action = menu.addAction("复制值")
+        self._copy_range_action = menu.addAction("复制选中区域")
 
     def _handle_menu_action(self, action, address, value, data_type):
         """处理默认菜单项（外部插入的由外部自己处理）"""
@@ -486,3 +494,5 @@ class BinViewer(QWidget):
             QApplication.clipboard().setText(f"0x{address:08X}")
         elif action == self._copy_value_action:
             QApplication.clipboard().setText(str(value))
+        elif action == self._copy_range_action:
+            copy_selected_cells(self.table)

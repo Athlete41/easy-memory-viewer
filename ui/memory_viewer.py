@@ -3,29 +3,26 @@ from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QSizePolicy
 
 
-from common.types import DataType
+from core.memory_engine import MemoryEngine
 from ui.bin_viewer import BinViewer
 from ui.log_panel import LogLevel
-from core.memory_tool import MemoryTool
-import struct
 
 class MemoryToolPanel(QWidget):
     """
-    MemoryTool 的图形界面控制面板。
-    只负责进程名输入、附加/分离控制。
+    进程附加控制面板，只负责进程名输入、附加/分离控制。
     错误直接弹窗，同时发出日志信号。
     """
-    
+
     log_signal = Signal(LogLevel, str)  # (level, message)
 
-    def __init__(self, memory_tool: MemoryTool, parent=None):
+    def __init__(self, engine: MemoryEngine, parent=None):
         super().__init__(parent)
-        self._memory_tool = memory_tool
+        self._engine = engine
         self._is_attached = False
 
         self._build_ui()
         self._connect_signals()
-        self._memory_tool.attachStatusChanged.connect(self._on_attach_status_changed)
+        self._engine.attachStatusChanged.connect(self._on_attach_status_changed)
 
     def _build_ui(self):
         layout = QVBoxLayout(self)
@@ -63,29 +60,24 @@ class MemoryToolPanel(QWidget):
             return
 
         try:
-            self._memory_tool.setProcessName(process_name)
-            self._memory_tool.attach()
+            self._engine.attach(process_name)
             self.log_signal.emit(LogLevel.INFO, f"正在附加到进程: {process_name}")
         except Exception as e:
             self.log_signal.emit(LogLevel.ERROR, f"附加失败: {e}")
             QMessageBox.warning(self, "附加失败", str(e))
 
     def detach(self):
-        if self._memory_tool:
+        if self._engine:
             try:
-                self._memory_tool.close()
+                self._engine.detach()
                 self.log_signal.emit(LogLevel.INFO, "已分离进程")
             except Exception as e:
                 self.log_signal.emit(LogLevel.ERROR, f"分离失败: {e}")
                 QMessageBox.warning(self, "分离失败", str(e))
 
     @property
-    def memory_tool(self) -> MemoryTool:
-        return self._memory_tool
-
-    @memory_tool.setter
-    def memory_tool(self, memory_tool: MemoryTool):
-        self._memory_tool = memory_tool
+    def engine(self) -> MemoryEngine:
+        return self._engine
 
     @property
     def is_attached(self) -> bool:
@@ -119,21 +111,21 @@ class MemoryToolPanel(QWidget):
 class MemoryViewer(QWidget):
     """
     内存查看器。
-    组装 MemoryToolPanel + BinViewer，只负责显示。
+    组装 MemoryToolPanel + BinViewer，只负责显示与跳转。
     """
-    
+
     viewport_changed = Signal("long long", "long long")
     log_signal = Signal(LogLevel, str)  # (level, message) 日志信号
     jump_clicked_signal = Signal(str, int)  # (address, size) 跳转信号
 
-    def __init__(self, memory_tool: MemoryTool, parent=None):
+    def __init__(self, engine: MemoryEngine, parent=None):
         super().__init__(parent)
-        self._memory_tool = memory_tool
+        self._engine = engine
         self._view_address = 0x0
         self._view_range = 0x100
 
         # 子控件
-        self._panel = MemoryToolPanel(memory_tool)
+        self._panel = MemoryToolPanel(engine)
         self._bin_viewer = BinViewer()
 
         self._build_ui()
@@ -161,7 +153,7 @@ class MemoryViewer(QWidget):
         self.is_64bit_checkbox.setChecked(True)
 
         addr_row.addWidget(QLabel("地址:"))
-        addr_row.addWidget(self.addr_edit, 1)  # ← 拉伸因子 1，占满剩余空间
+        addr_row.addWidget(self.addr_edit, 1)  # 拉伸因子 1，占满剩余空间
         addr_row.addWidget(self.is_64bit_checkbox)
 
         # 大小行
@@ -174,7 +166,7 @@ class MemoryViewer(QWidget):
         self.jump_btn = QPushButton("跳转")
 
         size_row.addWidget(QLabel("大小:"))
-        size_row.addWidget(self.size_edit, 1)  # ← 拉伸因子 1
+        size_row.addWidget(self.size_edit, 1)  # 拉伸因子 1
         size_row.addWidget(self.jump_btn)
 
         # 信息行
@@ -196,8 +188,7 @@ class MemoryViewer(QWidget):
     def _connect_signals(self):
         self.jump_btn.clicked.connect(self._on_jump_clicked)
         self.addr_edit.returnPressed.connect(self._on_jump_clicked)
-        self.panel.memory_tool.attachStatusChanged.connect(self._on_attach_status_changed)
-        self._bin_viewer.modify_requested.connect(self.on_modify_requested)
+        self.panel.engine.attachStatusChanged.connect(self._on_attach_status_changed)
 
     # ================= 公共接口 =================
     def set_data(self, data: bytes):
@@ -208,9 +199,6 @@ class MemoryViewer(QWidget):
     def get_data(self) -> bytes:
         """获取当前视口内的数据"""
         return self.bin_viewer.get_data()
-
-    def getAddrByExpression(self, expression: str) -> int:
-        return self._memory_tool.getAddrByExpression(expression, self.is_64bit_checkbox.isChecked())
 
     def jump_to(self, addrExpression: str | int = None, size: int = None):
         """跳转到新地址，发出信号"""
@@ -231,7 +219,10 @@ class MemoryViewer(QWidget):
         address = addrExpression
         if isinstance(address, str):
             try:
-                address = self.getAddrByExpression(addrExpression)
+                address = self._engine.resolve_expression(
+                    addrExpression,
+                    self.is_64bit_checkbox.isChecked(),
+                )
             except Exception as e:
                 error_msg = f"地址: {addrExpression}, 错误: {str(e)}"
                 QMessageBox.warning(self, "跳转失败", error_msg)
@@ -248,44 +239,6 @@ class MemoryViewer(QWidget):
         self.addr_edit.setText(addrExpression if isinstance(addrExpression, str) else f"0x{addrExpression:X}")
         self.size_edit.setText(f"0x{size:X}")
 
-    def on_modify_requested(self, address: str | int, valExpr: str, type: DataType):
-        """处理修改请求：解析表达式 → 打包 → 写入 → 刷新"""
-
-        if isinstance(address, str):
-            try:
-                address = self.getAddrByExpression(address)
-            except Exception as e:
-                self.log_signal.emit(LogLevel.ERROR, f"解析失败: 地址 {address} 错误 {str(e)}")
-                return
-
-        try:
-            if type == DataType.STRING:
-                data = valExpr.encode('utf-8')
-            else:
-                # 数值类型：eval 表达式
-                val = eval(valExpr, {}, {})  # 安全 eval，禁止访问内置函数
-                if type == DataType.BYTE:
-                    data = struct.pack('b', val)       # 有符号 byte
-                elif type == DataType.INT16:
-                    data = struct.pack('<h', val)      # 小端 16 位
-                elif type in (DataType.INT32, DataType.HEX32):
-                    data = struct.pack('<i', val)      # 小端 32 位
-                elif type == DataType.INT64:
-                    data = struct.pack('<q', val)      # 小端 64 位
-                elif type == DataType.FLOAT:
-                    data = struct.pack('<f', val)      # 小端 float
-                elif type == DataType.DOUBLE:
-                    data = struct.pack('<d', val)      # 小端 double
-                else:
-                    raise ValueError(f"不支持的数据类型: {type}")
-
-            # 写入内存
-            self._memory_tool.write(address, data)
-            self.log_signal.emit(LogLevel.INFO, f"修改成功: 0x{address:X} <- {valExpr}")
-            # self.viewport_changed.emit(self._view_address, self._view_range)
-        except Exception as e:
-            self.log_signal.emit(LogLevel.ERROR, f"地址 0x{address:X}, 表达式 {valExpr}, 数据类型 {type}, 修改失败: {e}")
-
     @property
     def bin_viewer(self) -> BinViewer:
         return self._bin_viewer
@@ -296,7 +249,6 @@ class MemoryViewer(QWidget):
 
     def get_viewport(self):
         return (self._view_address, self._view_range)
-
 
     # ================= 内部 =================
     def _on_jump_clicked(self):

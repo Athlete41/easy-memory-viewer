@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
 from common.types import DataType, parse_value_from_bytes
 from core.search_engine import SearchEngine, SearchState, SearchResult
 from ui.dialog import EditValueDialog
+from ui.clipboard_utils import copy_selected_cells
 from ui.log_panel import LogLevel
 
 # 从 DataType 枚举生成类型列表
@@ -102,12 +103,6 @@ class _CandidateTableModel(QAbstractTableModel):
     def columnCount(self, parent=QModelIndex()) -> int:
         return 3
 
-    def flags(self, index: QModelIndex) -> Qt.ItemFlags:
-        """控制列的可选性：初始值列不可选"""
-        flags = super().flags(index)
-        if index.column() == 1:  # 初始值列
-            flags &= ~Qt.ItemIsSelectable
-        return flags
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole):
         if not index.isValid() or role != Qt.DisplayRole:
@@ -130,10 +125,11 @@ class _CandidateTableModel(QAbstractTableModel):
         value = result.value
         if isinstance(value, float):
             return f"{value:.6f}"
-        elif isinstance(value, str):
+        if isinstance(value, str):
             return value
-        else:
-            return f"{value} (0x{value:X})"
+        if result.data_type in (DataType.HEX32, DataType.HEX64):
+            return f"0x{value:X}"
+        return str(value)
 
     def headerData(self, section: int, orientation: int, role: int = Qt.DisplayRole):
         if role != Qt.DisplayRole or orientation != Qt.Horizontal:
@@ -417,7 +413,7 @@ class SearchPanel(QWidget):
         self.candidate_view = QTableView(self)
         self.candidate_view.setFont(QFont("Consolas", 9))
         self.candidate_view.setModel(self._model)
-        self.candidate_view.setSelectionBehavior(QAbstractItemView.SelectRows)
+        self.candidate_view.setSelectionBehavior(QAbstractItemView.SelectItems)
         self.candidate_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.candidate_view.verticalHeader().setVisible(False)
         self.candidate_view.horizontalHeader().setStretchLastSection(True)
@@ -441,6 +437,9 @@ class SearchPanel(QWidget):
         view.customContextMenuRequested.connect(lambda pos: self._show_table_menu(view, pos))
         shortcut = QShortcut(QKeySequence("Ctrl+A"), view)
         shortcut.setContext(Qt.WidgetShortcut)
+        copy_shortcut = QShortcut(QKeySequence(QKeySequence.StandardKey.Copy), view)
+        copy_shortcut.setContext(Qt.WidgetShortcut)
+        copy_shortcut.activated.connect(lambda: copy_selected_cells(view))
         shortcut.activated.connect(view.selectAll)
 
     def _show_table_menu(self, view, pos):
@@ -464,7 +463,7 @@ class SearchPanel(QWidget):
 
     def _add_builtin_menu_items(self, menu):
         """内部默认菜单项"""
-        self._copy_selected_action = menu.addAction("复制选中行")
+        self._copy_selected_action = menu.addAction("复制选中")
         self._copy_cell_action = menu.addAction("复制单元格")
         self._modify_action = menu.addAction("修改值")
 
@@ -472,17 +471,7 @@ class SearchPanel(QWidget):
     def _handle_menu_action(self, action, view, index, result):
         """处理默认菜单项（外部插入的由外部自己处理）"""
         if action == self._copy_selected_action:
-            model = view.model()
-            if not model:
-                return
-            rows = sorted({index.row() for index in view.selectionModel().selectedRows()})
-            if not rows:
-                return
-            lines = []
-            for row in rows:
-                parts = [str(model.index(row, col).data(Qt.DisplayRole) or "") for col in range(model.columnCount())]
-                lines.append("\t".join(parts))
-            QApplication.clipboard().setText("\n".join(lines))
+            copy_selected_cells(view)
         elif action == self._copy_cell_action:
             QApplication.clipboard().setText(str(index.data(Qt.DisplayRole) or ""))
         elif action == self._modify_action:
