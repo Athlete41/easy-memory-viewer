@@ -30,7 +30,7 @@ class EasyMemoryViewerWindow(QMainWindow):
         self._recent_files: list[str] = []
         self._max_recent_files = 10
 
-        self._jump_history: list[tuple[str, int]] = []
+        self._jump_history: list[str] = []
         self._max_jump_history = 50
 
         # ---- 核心依赖 ----
@@ -309,8 +309,7 @@ class EasyMemoryViewerWindow(QMainWindow):
             self._recent_files = data["recent_files"][:self._max_recent_files]
             self._update_recent_menu()
         if "jump_history" in data:
-            jump_history = data["jump_history"][-self._max_jump_history:]
-            self._jump_history = [(addrExpr, size) for addrExpr, size in jump_history]
+            self._jump_history = data["jump_history"][-self._max_jump_history:]
             self._update_jump_history_menu()
         self._update_timer()
 
@@ -455,10 +454,10 @@ class EasyMemoryViewerWindow(QMainWindow):
             return
         
         # 如果和上一条相同，不记录
-        if self._jump_history and self._jump_history[-1] == (expression, size):
+        if self._jump_history and self._jump_history[-1] == expression:
             return
         
-        self._jump_history.append((expression, size))
+        self._jump_history.append(expression)
         
         # 限制长度
         if len(self._jump_history) > self._max_jump_history:
@@ -478,13 +477,12 @@ class EasyMemoryViewerWindow(QMainWindow):
             self._jump_history_menu.addAction(no_action)
             return
         
-        for expr, size in self._jump_history:
+        for addrExpr in self._jump_history:
             # 截断显示，避免菜单太长
-            display_text = expr if len(expr) <= 40 else expr[:37] + "..."
-            display_text = f"{display_text}, (0x{size:X} 字)"
+            display_text = addrExpr if len(addrExpr) <= 40 else addrExpr[:37] + "..."
             action = QAction(display_text, self)
-            action.setToolTip(expr)
-            action.triggered.connect(lambda checked, e=(expr, size): self.viewer.jump_to(e[0], e[1]))
+            action.setToolTip(addrExpr)
+            action.triggered.connect(lambda checked, e=addrExpr: self.viewer.jump_to(e, size=None))
             self._jump_history_menu.addAction(action)
 
     def _clear_jump_history(self):
