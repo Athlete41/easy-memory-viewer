@@ -186,8 +186,8 @@ class SearchPanel(QWidget):
     4. clear() 清空
     """
 
-    modify_requested = Signal(int, str, DataType)
-    item_activated = Signal(int, DataType, object)
+    modify_requested = Signal("long long", str, DataType)
+    item_activated = Signal("long long", DataType, object)
     log_signal = Signal(LogLevel, str)
     context_menu_requested = Signal(QMenu, int, int, SearchResult)
 

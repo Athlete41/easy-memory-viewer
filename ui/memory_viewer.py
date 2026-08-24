@@ -122,7 +122,7 @@ class MemoryViewer(QWidget):
     组装 MemoryToolPanel + BinViewer，只负责显示。
     """
     
-    viewport_changed = Signal('long long', 'long long')
+    viewport_changed = Signal("long long", "long long")
     log_signal = Signal(LogLevel, str)  # (level, message) 日志信号
     jump_clicked_signal = Signal(str, int)  # (address, size) 跳转信号
 

@@ -28,8 +28,8 @@ WIDTH_MAP: Dict[DataType, int] = {
 
 # ================= BinViewer 主控件 =================
 class BinViewer(QWidget):
-    modify_requested = Signal(int, str, DataType)
-    context_menu_requested = Signal(QMenu, int, int, int, object, DataType)
+    modify_requested = Signal("long long", str, DataType)
+    context_menu_requested = Signal(QMenu, int, int, "long long", object, DataType)
 
     def __init__(self, parent=None):
         super().__init__(parent)
