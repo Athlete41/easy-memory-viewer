@@ -197,7 +197,7 @@ class MemoryViewer(QWidget):
         self.jump_btn.clicked.connect(self._on_jump_clicked)
         self.addr_edit.returnPressed.connect(self._on_jump_clicked)
         self.panel.memory_tool.attachStatusChanged.connect(self._on_attach_status_changed)
-        self._bin_viewer.modify_requested.connect(self._on_modify_requested)
+        self._bin_viewer.modify_requested.connect(self.on_modify_requested)
 
     # ================= 公共接口 =================
     def set_data(self, data: bytes):
@@ -212,18 +212,26 @@ class MemoryViewer(QWidget):
     def getAddrByExpression(self, expression: str) -> int:
         return self._memory_tool.getAddrByExpression(expression, self.is_64bit_checkbox.isChecked())
 
-    def jump_to(self, addrExpression: str | int, size: int):
+    def jump_to(self, addrExpression: str | int = None, size: int = None):
         """跳转到新地址，发出信号"""
+        if addrExpression is None:
+            addrExpression = self.addr_edit.text().strip()
+
+        if size is None:
+            size_text = self.size_edit.text().strip()
+            try:
+                size = int(size_text, 16) if 'x' in size_text.lower() else int(size_text)
+            except ValueError as e:
+                self.log_signal.emit(LogLevel.ERROR, f"无效输入: {e}")
+                return
+
         if size <= 0:
             return
 
         address = addrExpression
         if isinstance(address, str):
             try:
-                address = self._memory_tool.getAddrByExpression(
-                    addrExpression, 
-                    self.is_64bit_checkbox.isChecked()
-                )
+                address = self.getAddrByExpression(addrExpression)
             except Exception as e:
                 error_msg = f"地址: {addrExpression}, 错误: {str(e)}"
                 QMessageBox.warning(self, "跳转失败", error_msg)
@@ -240,33 +248,7 @@ class MemoryViewer(QWidget):
         self.addr_edit.setText(addrExpression if isinstance(addrExpression, str) else f"0x{addrExpression:X}")
         self.size_edit.setText(f"0x{size:X}")
 
-    @property
-    def bin_viewer(self) -> BinViewer:
-        return self._bin_viewer
-
-    @property
-    def panel(self) -> MemoryToolPanel:
-        return self._panel
-
-    def get_viewport(self):
-        return (self._view_address, self._view_range)
-
-
-    # ================= 内部 =================
-    def _on_jump_clicked(self):
-        addr_text = self.addr_edit.text().strip()
-        size_text = self.size_edit.text().strip()
-        try:
-            size = int(size_text, 16) if 'x' in size_text.lower() else int(size_text)
-            self.jump_to(addr_text, size)
-        except ValueError as e:
-            self.log_signal.emit(LogLevel.ERROR, f"无效输入: {e}")
-
-    def _on_attach_status_changed(self, attached: bool):
-        status = "已附加" if attached else "已分离"
-        self.log_signal.emit(LogLevel.INFO, status)
-
-    def _on_modify_requested(self, address: int | str, expression: str, type: DataType):
+    def on_modify_requested(self, address: str | int, valExpr: str, type: DataType):
         """处理修改请求：解析表达式 → 打包 → 写入 → 刷新"""
 
         if isinstance(address, str):
@@ -278,10 +260,10 @@ class MemoryViewer(QWidget):
 
         try:
             if type == DataType.STRING:
-                data = expression.encode('utf-8')
+                data = valExpr.encode('utf-8')
             else:
                 # 数值类型：eval 表达式
-                val = eval(expression, {}, {})  # 安全 eval，禁止访问内置函数
+                val = eval(valExpr, {}, {})  # 安全 eval，禁止访问内置函数
                 if type == DataType.BYTE:
                     data = struct.pack('b', val)       # 有符号 byte
                 elif type == DataType.INT16:
@@ -299,10 +281,30 @@ class MemoryViewer(QWidget):
 
             # 写入内存
             self._memory_tool.write(address, data)
-            self.log_signal.emit(LogLevel.INFO, f"修改成功: 0x{address:X} <- {expression}")
+            self.log_signal.emit(LogLevel.INFO, f"修改成功: 0x{address:X} <- {valExpr}")
             # self.viewport_changed.emit(self._view_address, self._view_range)
         except Exception as e:
-            self.log_signal.emit(LogLevel.ERROR, f"地址 0x{address:X}, 表达式 {expression}, 数据类型 {type}, 修改失败: {e}")
+            self.log_signal.emit(LogLevel.ERROR, f"地址 0x{address:X}, 表达式 {valExpr}, 数据类型 {type}, 修改失败: {e}")
+
+    @property
+    def bin_viewer(self) -> BinViewer:
+        return self._bin_viewer
+
+    @property
+    def panel(self) -> MemoryToolPanel:
+        return self._panel
+
+    def get_viewport(self):
+        return (self._view_address, self._view_range)
+
+
+    # ================= 内部 =================
+    def _on_jump_clicked(self):
+        self.jump_to()
+
+    def _on_attach_status_changed(self, attached: bool):
+        status = "已附加" if attached else "已分离"
+        self.log_signal.emit(LogLevel.INFO, status)
 
     def serialize(self) -> dict:
         return {

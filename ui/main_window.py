@@ -179,11 +179,11 @@ class EasyMemoryViewerWindow(QMainWindow):
 
         self.search_panel.item_activated.connect(self._on_search_item_activated)
         self.search_panel.log_signal.connect(self.log_panel.log)
-        self.search_panel.modify_requested.connect(self.viewer._on_modify_requested)
+        self.search_panel.modify_requested.connect(self.viewer.on_modify_requested)
         self.search_panel.context_menu_requested.connect(self._on_search_context_menu)
 
         self.watch_panel.log_signal.connect(self.log_panel.log)
-        self.watch_panel.modify_requested.connect(self.viewer._on_modify_requested)
+        self.watch_panel.modify_requested.connect(self.viewer.on_modify_requested)
 
 
     # ================= 调度逻辑 =================
@@ -277,7 +277,7 @@ class EasyMemoryViewerWindow(QMainWindow):
 
     def _on_search_item_activated(self, address: int, data_type: DataType, value: object):
         """双击搜索列表 -> 跳转到该地址"""
-        self.viewer.jump_to(address, 0x100)
+        self.viewer.jump_to(address, size=None)
         self.log_panel.debug(f"跳转到搜索结果: 0x{address:X} = {value}")
 
     # ================= 配置加载/保存 =================
