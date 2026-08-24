@@ -13,7 +13,7 @@ from PySide6.QtGui import QAction
 from ui.memory_viewer import MemoryViewer
 from ui.log_panel import LogPanel
 from ui.search_panel import SearchPanel
-from ui.watch_panel import WatchPanel
+from ui.watch_panel import WatchPanel, WatchEntry
 from core.memory_tool import CrackerMemTool
 from core.fetcher import Fetcher, ReadRequest
 from common.types import DataType
@@ -184,6 +184,7 @@ class EasyMemoryViewerWindow(QMainWindow):
 
         self.watch_panel.log_signal.connect(self.log_panel.log)
         self.watch_panel.modify_requested.connect(self.viewer.on_modify_requested)
+        self.watch_panel.context_menu_requested.connect(self._on_watch_context_menu)
 
 
     # ================= 调度逻辑 =================
@@ -451,6 +452,16 @@ class EasyMemoryViewerWindow(QMainWindow):
             )
         )
 
+
+    def _on_watch_context_menu(self, menu, row: int, entry: WatchEntry):
+        """外部往 WatchPanel 的右键菜单里添加自定义项"""
+        menu.addSeparator()
+        
+        # 跳转到该地址
+        jump_action = menu.addAction(f"跳转到 {entry.expression}")
+        jump_action.triggered.connect(
+            lambda: self.viewer.jump_to(entry.expression, size=None)
+        )
 
     def _add_jump_history(self, expression: str, size: int):
         """添加跳转历史，去重+长度限制"""
