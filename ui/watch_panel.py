@@ -84,7 +84,7 @@ class _WatchTableModel(QAbstractTableModel):
         elif isinstance(value, str):
             return value
         else:
-            return f"{value} (0x{value:X})"
+            return f"0x{value:X}"
 
     def headerData(self, section: int, orientation: int, role: int = Qt.DisplayRole):
         if role != Qt.DisplayRole or orientation != Qt.Horizontal:
