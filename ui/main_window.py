@@ -484,7 +484,7 @@ class EasyMemoryViewerWindow(QMainWindow):
             display_text = f"{display_text}, (0x{size:X} 字)"
             action = QAction(display_text, self)
             action.setToolTip(expr)
-            action.triggered.connect(lambda checked, e=expr: self.viewer.jump_to(e, size))
+            action.triggered.connect(lambda checked, e=(expr, size): self.viewer.jump_to(e[0], e[1]))
             self._jump_history_menu.addAction(action)
 
     def _clear_jump_history(self):
