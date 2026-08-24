@@ -463,6 +463,12 @@ class EasyMemoryViewerWindow(QMainWindow):
             lambda: self.viewer.jump_to(entry.expression, size=None)
         )
 
+        if entry.value is not None and isinstance(entry.value, int) and (entry.data_type == DataType.HEX32 or entry.data_type == DataType.HEX64):
+            jump_value_action = menu.addAction(f"跳转到 {hex(entry.value)}")
+            jump_value_action.triggered.connect(
+                lambda: self.viewer.jump_to(entry.value, size=None)
+            )
+
     def _add_jump_history(self, expression: str, size: int):
         """添加跳转历史，去重+长度限制"""
         if not expression:
