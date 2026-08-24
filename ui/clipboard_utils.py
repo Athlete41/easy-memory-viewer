@@ -47,3 +47,21 @@ def copy_selected_rows(view) -> bool:
         lines.append("\t".join(cells))
     QApplication.clipboard().setText("\n".join(lines))
     return True
+
+def copy_rows_from_selected_cells(view) -> bool:
+    """复制选中单元格所在行的完整行内容（TSV）。"""
+    selection = view.selectionModel()
+    if selection is None:
+        return False
+    model = view.model()
+    if model is None:
+        return False
+    rows = sorted({idx.row() for idx in selection.selectedIndexes()})
+    if not rows:
+        return False
+    lines = []
+    for row in rows:
+        cells = [_cell_text(model, model.index(row, col)) for col in range(model.columnCount())]
+        lines.append("\t".join(cells))
+    QApplication.clipboard().setText("\n".join(lines))
+    return True

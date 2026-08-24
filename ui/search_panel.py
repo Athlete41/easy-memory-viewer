@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import List, Optional, Dict
 
-from PySide6.QtCore import Qt, QAbstractTableModel, QModelIndex, Signal
+from PySide6.QtCore import Qt, QAbstractTableModel, QItemSelectionModel, QModelIndex, Signal
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 from common.types import DataType, parse_value_from_bytes
 from core.search_engine import SearchEngine, SearchState, SearchResult
 from ui.dialog import EditValueDialog
-from ui.clipboard_utils import copy_selected_cells
+from ui.clipboard_utils import copy_selected_cells, copy_rows_from_selected_cells
 from ui.log_panel import LogLevel
 
 # 从 DataType 枚举生成类型列表
@@ -127,7 +127,7 @@ class _CandidateTableModel(QAbstractTableModel):
             return f"{value:.6f}"
         if isinstance(value, str):
             return value
-        if result.data_type in (DataType.HEX32, DataType.HEX64):
+        if result.data_type in (DataType.BYTE, DataType.HEX32, DataType.HEX64):
             return f"0x{value:X}"
         return str(value)
 
@@ -185,7 +185,7 @@ class SearchPanel(QWidget):
     modify_requested = Signal("long long", str, DataType)
     item_activated = Signal("long long", DataType, object)
     log_signal = Signal(LogLevel, str)
-    context_menu_requested = Signal(QMenu, int, int, SearchResult)
+    context_menu_requested = Signal(QMenu, object, object)
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -210,6 +210,15 @@ class SearchPanel(QWidget):
 
     def get_current_results(self) -> List[SearchResult]:
         return self._model.get_current_results()
+
+    def get_selected_results(self) -> List[SearchResult]:
+        rows = sorted({idx.row() for idx in self.candidate_view.selectionModel().selectedIndexes()})
+        results = []
+        for row in rows:
+            result = self._model.get_result_at(row)
+            if result is not None:
+                results.append(result)
+        return results
 
     def update_current_values(self, results: Dict[str, bytes]):
         current_results = self._model.get_current_results()
@@ -453,27 +462,34 @@ class SearchPanel(QWidget):
         if not result:
             return
 
+        selection = view.selectionModel()
+        if index not in selection.selectedIndexes():
+            selection.clearSelection()
+            selection.select(
+                index,
+                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.Rows,
+            )
+
+        results = self.get_selected_results() or [result]
+
         menu = QMenu(self)
 
         self._add_builtin_menu_items(menu)
-        self.context_menu_requested.emit(menu, row, col, result)
+        self.context_menu_requested.emit(menu, result, results)
         action = menu.exec(view.viewport().mapToGlobal(pos))
         self._handle_menu_action(action, view, index, result)
 
 
     def _add_builtin_menu_items(self, menu):
         """内部默认菜单项"""
-        self._copy_selected_action = menu.addAction("复制选中")
-        self._copy_cell_action = menu.addAction("复制单元格")
+        self._copy_selected_action = menu.addAction("复制整行")
         self._modify_action = menu.addAction("修改值")
 
 
     def _handle_menu_action(self, action, view, index, result):
         """处理默认菜单项（外部插入的由外部自己处理）"""
         if action == self._copy_selected_action:
-            copy_selected_cells(view)
-        elif action == self._copy_cell_action:
-            QApplication.clipboard().setText(str(index.data(Qt.DisplayRole) or ""))
+            copy_rows_from_selected_cells(view)
         elif action == self._modify_action:
             current_value_str = self._model.data(index, Qt.DisplayRole)
             if not current_value_str or current_value_str == "":

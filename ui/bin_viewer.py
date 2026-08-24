@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
     QTableWidget, QTableWidgetItem, QComboBox, QPushButton,
     QHeaderView, QDialog, QMessageBox, QMenu, QApplication
 )
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, QItemSelectionModel, Signal
 from PySide6.QtGui import QBrush, QColor, QKeySequence, QShortcut
 
 
@@ -443,6 +443,14 @@ class BinViewer(QWidget):
 
         row, col = index.row(), index.column()
 
+        selection = self.table.selectionModel()
+        if index not in selection.selectedIndexes():
+            selection.clearSelection()
+            selection.select(
+                index,
+                QItemSelectionModel.SelectionFlag.Select | QItemSelectionModel.SelectionFlag.SelectCurrent,
+            )
+
         # 1. 计算地址
         group_idx = self._column_to_group.get(col)
         if group_idx is None:
@@ -481,7 +489,30 @@ class BinViewer(QWidget):
         self._modify_action = menu.addAction("修改值...")
         self._copy_addr_action = menu.addAction("复制地址")
         self._copy_value_action = menu.addAction("复制值")
-        self._copy_range_action = menu.addAction("复制选中区域")
+
+    def get_selected_entries(self):
+        """返回选中数据单元格对应的 (address, value_text, data_type) 列表。"""
+        entries = []
+        indexes = sorted(
+            self.table.selectionModel().selectedIndexes(),
+            key=lambda idx: (idx.row(), idx.column()),
+        )
+        for index in indexes:
+            col = index.column()
+            if col == 0:
+                continue
+            group_idx = self._column_to_group.get(col)
+            if group_idx is None:
+                continue
+            fmt = self._format_groups[group_idx]
+            start_col, _ = self._group_column_ranges[group_idx]
+            byte_width = fmt.get_size()
+            offset = index.row() * 16 + (col - start_col) * byte_width
+            address = self._base_address + offset
+            item = self.table.item(index.row(), col)
+            value_text = item.text() if item else ""
+            entries.append((address, value_text, fmt.data_type))
+        return entries
 
     def _handle_menu_action(self, action, address, value, data_type):
         """处理默认菜单项（外部插入的由外部自己处理）"""
@@ -494,5 +525,3 @@ class BinViewer(QWidget):
             QApplication.clipboard().setText(f"0x{address:08X}")
         elif action == self._copy_value_action:
             QApplication.clipboard().setText(str(value))
-        elif action == self._copy_range_action:
-            copy_selected_cells(self.table)

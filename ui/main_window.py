@@ -237,10 +237,11 @@ class EasyMemoryViewerWindow(QMainWindow):
             requests[f"search_{addr:X}"] = ReadRequest(f"search_{addr:X}", addr, 4)
 
         # 3. 观察项请求（WatchPanel 存的是表达式，需要解析有效表达式）
+        effective_map = self.watch_panel.get_effective_expressions()
         address_map = {}
         for entry in self.watch_panel.get_entries():
+            expression = effective_map[entry.id]
             try:
-                expression = self.watch_panel.get_effective_expression(entry)
                 address = self.engine.resolve_expression(
                     expression,
                     self.viewer.is_64bit_checkbox.isChecked(),
@@ -445,24 +446,28 @@ class EasyMemoryViewerWindow(QMainWindow):
         # 添加到观察区
         watch_action = menu.addAction("添加到观察区")
         # 用 lambda 捕获，不立即执行
+        watch_action.triggered.connect(lambda: self._add_bin_selection_to_watch())
+
+    def _add_bin_selection_to_watch(self):
+        for address, _value, data_type in self.viewer.bin_viewer.get_selected_entries():
+            self.watch_panel.add_entry(f"0x{address:X}", f"0x{address:X}", data_type)
+
+    def _on_search_context_menu(self, menu, result, results):
+        """外部往 SearchPanel 的右键菜单里添加自定义项"""
+        menu.addSeparator()
+        label = f"添加到观察区 ({len(results)})" if len(results) > 1 else "添加到观察区"
+        watch_action = menu.addAction(label)
         watch_action.triggered.connect(
-            lambda: self.watch_panel.add_entry(
-                f"0x{address:X}", f"0x{address:X}", data_type
-            )
+            lambda: self._add_search_results_to_watch(results)
         )
 
-    def _on_search_context_menu(self, menu, row, col, result):
-        """外部往 SearchPanel 的菜单里添加自定义项"""
-        # 可以直接往 menu 里添加
-        menu.addSeparator()
-        watch_action = menu.addAction("添加到观察区")
-        watch_action.triggered.connect(
-            lambda: self.watch_panel.add_entry(
+    def _add_search_results_to_watch(self, results):
+        for result in results:
+            self.watch_panel.add_entry(
                 f"搜索 @ 0x{result.address:X}",
                 f"0x{result.address:X}",
-                result.data_type
+                result.data_type,
             )
-        )
 
 
     def _on_watch_context_menu(self, menu, entry: WatchEntry):

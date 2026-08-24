@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import json
+
 from typing import List, Optional, Dict, Any
 from dataclasses import dataclass, field
 
-from PySide6.QtCore import Qt, QAbstractItemModel, QItemSelectionModel, QModelIndex, Signal
+from PySide6.QtCore import Qt, QAbstractItemModel, QItemSelectionModel, QModelIndex, QMimeData, Signal
 from PySide6.QtGui import QFont, QKeySequence, QShortcut
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -46,6 +48,7 @@ class _WatchTreeModel(QAbstractItemModel):
     def __init__(self, parent=None):
         super().__init__(parent)
         self._roots: List[WatchEntry] = []
+        self._by_id: Dict[int, WatchEntry] = {}
 
     # ================= Qt Model API =================
 
@@ -81,7 +84,12 @@ class _WatchTreeModel(QAbstractItemModel):
         return len(parent.internalPointer().children) > 0
 
     def flags(self, index: QModelIndex) -> Qt.ItemFlags:
-        return Qt.ItemIsEnabled | Qt.ItemIsSelectable
+        return (
+            Qt.ItemIsEnabled
+            | Qt.ItemIsSelectable
+            | Qt.ItemIsDragEnabled
+            | Qt.ItemIsDropEnabled
+        )
 
     def data(self, index: QModelIndex, role: int = Qt.DisplayRole):
         if not index.isValid():
@@ -148,10 +156,7 @@ class _WatchTreeModel(QAbstractItemModel):
         return result
 
     def get_entry_by_id(self, entry_id: int) -> Optional[WatchEntry]:
-        for entry in self.get_entries():
-            if entry.id == entry_id:
-                return entry
-        return None
+        return self._by_id.get(entry_id)
 
     # ================= 结构操作 =================
 
@@ -175,9 +180,11 @@ class _WatchTreeModel(QAbstractItemModel):
             self.beginInsertRows(parent_index, row, row)
             parent.children.insert(row, entry)
             self.endInsertRows()
+        self._register_entry(entry)
         return entry
 
     def remove_entry(self, entry: WatchEntry) -> bool:
+        self._unregister_entry(entry)
         if entry.parent is None:
             row = self._roots.index(entry)
             self.beginRemoveRows(QModelIndex(), row, row)
@@ -195,14 +202,105 @@ class _WatchTreeModel(QAbstractItemModel):
     def clear(self):
         self.beginResetModel()
         self._roots.clear()
+        self._by_id.clear()
         self.endResetModel()
 
     def set_entries(self, entries: List[WatchEntry]):
         self.beginResetModel()
         self._roots = entries.copy()
+        self._by_id.clear()
         for entry in self._roots:
             entry.parent = None
+            self._register_entry(entry)
         self.endResetModel()
+
+    # ================= 拖拽 =================
+
+    _MIME_TYPE = "application/x-easy-memory-watch-entry-ids"
+
+    def mimeTypes(self) -> List[str]:
+        return [self._MIME_TYPE]
+
+    def mimeData(self, indexes) -> QMimeData:
+        mime = QMimeData()
+        entries = [
+            idx.internalPointer()
+            for idx in indexes
+            if idx.isValid() and idx.column() == 0 and idx.internalPointer() is not None
+        ]
+        if not entries:
+            return mime
+        selected_ids = {id(e) for e in entries}
+        top = [e for e in entries if e.parent is None or id(e.parent) not in selected_ids]
+        mime.setData(self._MIME_TYPE, json.dumps([e.id for e in top]).encode("utf-8"))
+        return mime
+
+    def supportedDropActions(self) -> Qt.DropActions:
+        return Qt.MoveAction
+
+    def dropMimeData(self, data, action, row, column, parent) -> bool:
+        if action == Qt.IgnoreAction or not data.hasFormat(self._MIME_TYPE):
+            return False
+        try:
+            ids = json.loads(bytes(data.data(self._MIME_TYPE)).decode("utf-8"))
+        except (ValueError, UnicodeDecodeError):
+            return False
+        entries = [self.get_entry_by_id(i) for i in ids]
+        entries = [e for e in entries if e is not None]
+        if not entries:
+            return False
+
+        target_parent = parent.internalPointer() if parent.isValid() else None
+        if any(self._is_ancestor(e, target_parent) for e in entries):
+            return False
+
+        target_row = row if row >= 0 else None
+        if target_parent is None:
+            if target_row is None:
+                target_row = len(self._roots)
+        else:
+            if target_row is None:
+                target_row = len(target_parent.children)
+
+        containers = {}
+        for e in entries:
+            containers.setdefault(id(e.parent), []).append(e)
+
+        removed_before_target = 0
+        for key, group in containers.items():
+            container = group[0].parent
+            group.sort(key=lambda e: (container.children if container else self._roots).index(e))
+            for e in reversed(group):
+                if container is target_parent:
+                    current_row = (container.children if container else self._roots).index(e)
+                    if current_row < target_row:
+                        removed_before_target += 1
+                self.remove_entry(e)
+
+        final_row = max(0, target_row - removed_before_target)
+        for e in entries:
+            self.insert_entry(e, target_parent, final_row)
+            final_row += 1
+        return True
+
+    @staticmethod
+    def _is_ancestor(entry: WatchEntry, node: Optional[WatchEntry]) -> bool:
+        current = node
+        while current is not None:
+            if current is entry:
+                return True
+            current = current.parent
+        return False
+
+    def _register_entry(self, entry: WatchEntry):
+        self._by_id[entry.id] = entry
+        for child in entry.children:
+            self._register_entry(child)
+
+    def _unregister_entry(self, entry: WatchEntry):
+        self._by_id.pop(entry.id, None)
+        for child in entry.children:
+            self._unregister_entry(child)
 
     # ================= 值更新 =================
 
@@ -259,7 +357,12 @@ class WatchPanel(QWidget):
         self.table.setSelectionBehavior(QAbstractItemView.SelectRows)
         self.table.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.table.setRootIsDecorated(True)
-        self.table.setAnimated(True)
+        self.table.setAnimated(False)
+        self.table.setDragEnabled(True)
+        self.table.setAcceptDrops(True)
+        self.table.setDropIndicatorShown(True)
+        self.table.setDragDropMode(QAbstractItemView.DragDrop)
+        self.table.setDefaultDropAction(Qt.MoveAction)
         self.table.setIndentation(16)
         self.table.setUniformRowHeights(True)
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
@@ -412,6 +515,23 @@ class WatchPanel(QWidget):
         if entry.parent is None:
             return entry.expression
         return compose_expression(self.get_effective_expression(entry.parent), entry.expression)
+
+    def get_effective_expressions(self) -> Dict[int, str]:
+        result = {}
+
+        def visit(entry: WatchEntry, parent_expr: Optional[str]):
+            expression = (
+                entry.expression
+                if parent_expr is None
+                else compose_expression(parent_expr, entry.expression)
+            )
+            result[entry.id] = expression
+            for child in entry.children:
+                visit(child, expression)
+
+        for root in self._model.get_roots():
+            visit(root, None)
+        return result
 
     def update_values(self, results: Dict[str, bytes]):
         for entry in self._model.get_entries():
