@@ -289,7 +289,12 @@ class EasyMemoryViewerWindow(QMainWindow):
     def _on_modify_requested(self, address, value_expr: str, data_type: DataType):
         """统一的内存修改入口，经 MemoryEngine 写入。"""
         try:
-            resolved = self.engine.modify(address, value_expr, data_type)
+            resolved = self.engine.modify(
+                address,
+                value_expr,
+                data_type,
+                is64bit=self.viewer.is_64bit_checkbox.isChecked(),
+            )
             self.log_panel.info(f"修改成功: 0x{resolved:X} <- {value_expr}")
         except Exception as e:
             self.log_panel.error(f"修改失败: {address} <- {value_expr}: {e}")

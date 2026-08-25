@@ -174,11 +174,7 @@ class MemoryEngine(QObject):
     # ================= 模块基址与指针缓存 =================
 
     def getBaseAddress(self, module_name: str) -> int:
-        if module_name in self.modules:
-            return self.modules[module_name]
-        return self.getBaseAddressNoCache(module_name)
-
-    def getBaseAddressNoCache(self, module_name: str) -> int:
+        """直读驱动获取模块基址，不使用缓存。"""
         if not self.isAttached():
             raise RuntimeError("尚未连接进程，请先调用 attach()")
         status, base = ct.getModuleBase(self._handle, self.pid, module_name)
@@ -187,25 +183,32 @@ class MemoryEngine(QObject):
         self.modules[module_name] = base
         return base
 
+    def getBaseAddressWithCache(self, module_name: str) -> int:
+        if module_name in self.modules:
+            return self.modules[module_name]
+        return self.getBaseAddress(module_name)
+
     def readPointer64(self, address: int) -> int:
-        if address in self._pointer_cache:
-            return self._pointer_cache[address]
-        value = self.readUInt64(address)
-        self._pointer_cache[address] = value
-        return value
-
-    def readPointer32(self, address: int) -> int:
-        if address in self._pointer_cache:
-            return self._pointer_cache[address]
-        value = self.readUInt32(address)
-        self._pointer_cache[address] = value
-        return value
-
-    def readPointer64NoCache(self, address: int) -> int:
+        """直读 64 位指针，不使用缓存。"""
         return self.readUInt64(address)
 
-    def readPointer32NoCache(self, address: int) -> int:
+    def readPointer32(self, address: int) -> int:
+        """直读 32 位指针，不使用缓存。"""
         return self.readUInt32(address)
+
+    def readPointer64WithCache(self, address: int) -> int:
+        if address in self._pointer_cache:
+            return self._pointer_cache[address]
+        value = self.readPointer64(address)
+        self._pointer_cache[address] = value
+        return value
+
+    def readPointer32WithCache(self, address: int) -> int:
+        if address in self._pointer_cache:
+            return self._pointer_cache[address]
+        value = self.readPointer32(address)
+        self._pointer_cache[address] = value
+        return value
 
     def clear_pointer_cache(self) -> None:
         self._pointer_cache.clear()
@@ -222,10 +225,10 @@ class MemoryEngine(QObject):
             raise RuntimeError("尚未连接进程，请先调用 attach()")
 
         if is64bit:
-            read_call = "self.readPointer64" if use_cache else "self.readPointer64NoCache"
+            read_call = "self.readPointer64WithCache" if use_cache else "self.readPointer64"
         else:
-            read_call = "self.readPointer32" if use_cache else "self.readPointer32NoCache"
-        base_call = "self.getBaseAddress" if use_cache else "self.getBaseAddressNoCache"
+            read_call = "self.readPointer32WithCache" if use_cache else "self.readPointer32"
+        base_call = "self.getBaseAddressWithCache" if use_cache else "self.getBaseAddress"
 
         pycode = expression.replace("[", read_call + "(")
         pycode = pycode.replace("]", ")")
@@ -247,10 +250,16 @@ class MemoryEngine(QObject):
 
     # ================= 高层修改 =================
 
-    def modify(self, address_expr, value_expr: str, data_type: DataType) -> int:
+    def modify(
+        self,
+        address_expr,
+        value_expr: str,
+        data_type: DataType,
+        is64bit: bool = True,
+    ) -> int:
         """解析地址表达式并写入内存，成功时返回解析后的绝对地址。"""
         if isinstance(address_expr, str):
-            address = self.resolve_expression(address_expr, use_cache=False)
+            address = self.resolve_expression(address_expr, is64bit=is64bit, use_cache=False)
         else:
             address = address_expr
 
