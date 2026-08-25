@@ -379,9 +379,9 @@ class WatchPanel(QWidget):
         header.setStretchLastSection(False)
         header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         header.setDefaultSectionSize(140)
-        header.resizeSection(0, 180)
-        header.resizeSection(1, 160)
-        header.resizeSection(2, 100)
+        header.resizeSection(0, 80)
+        header.resizeSection(1, 120)
+        header.resizeSection(2, 80)
         header.resizeSection(3, 160)
 
         self._install_table_actions()
