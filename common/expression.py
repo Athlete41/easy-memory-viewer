@@ -1,5 +1,7 @@
 """表达式组合的纯函数，观察区与 MemoryEngine 共用。"""
 
+import re
+
 OPERATOR_PREFIXES = ("+", "-", "*", "/", "%", "<<", ">>", "&", "|", "^")
 
 
@@ -17,6 +19,8 @@ def compose_expression(parent_expr: str, child_expr: str) -> str:
     child = (child_expr or "").strip()
     if not parent_expr:
         return child
+    if re.search(r"(?i)\$p", child):
+        return re.sub(r"(?i)\$p", f"({parent_expr})", child)
     if starts_with_operator(child):
         return f"({parent_expr}) {child}"
     return child

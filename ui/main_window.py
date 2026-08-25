@@ -15,7 +15,7 @@ from ui.log_panel import LogPanel
 from ui.search_panel import SearchPanel
 from ui.watch_panel import WatchPanel, WatchEntry
 from core.memory_engine import MemoryEngine
-from core.fetcher import ReadRequest
+from core.memory_engine import ReadRequest
 from common.types import DataType
 
 
@@ -227,6 +227,8 @@ class EasyMemoryViewerWindow(QMainWindow):
         if not self.engine.isAttached():
             return
 
+        self.engine.clear_pointer_cache()
+
         requests = {}
 
         # 1. 视图请求
@@ -245,6 +247,7 @@ class EasyMemoryViewerWindow(QMainWindow):
                 address = self.engine.resolve_expression(
                     expression,
                     self.viewer.is_64bit_checkbox.isChecked(),
+                    use_cache=True
                 )
                 address_map[entry.id] = address
             except Exception as e:

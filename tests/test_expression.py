@@ -31,6 +31,21 @@ class ExpressionComposeTests(unittest.TestCase):
     def test_empty_parent_returns_child(self):
         self.assertEqual(compose_expression("", "+ 0x4"), "+ 0x4")
 
+    def test_explicit_parent_macro(self):
+        parent = "[xxx.exe + 0x123]"
+        self.assertEqual(
+            compose_expression(parent, "$p + 0x4"),
+            "([xxx.exe + 0x123]) + 0x4",
+        )
+
+    def test_explicit_parent_macro_case_insensitive(self):
+        parent = "0x1000"
+        self.assertEqual(compose_expression(parent, "$P * 2"), "(0x1000) * 2")
+
+    def test_explicit_parent_macro_inside_brackets(self):
+        parent = "0x1000"
+        self.assertEqual(compose_expression(parent, "[$p] + 4"), "[(0x1000)] + 4")
+
 
 if __name__ == "__main__":
     unittest.main()

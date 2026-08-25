@@ -32,7 +32,7 @@ DriverUninstaller.bat   以管理员身份卸载驱动
 
 观察区表达式采用 CE 风格，例如 `[xxx.exe + 0x123] + 0x111`。
 
-子项表达式以运算符开头时会继承父项的有效表达式：
+子项表达式以运算符开头时会继承父项的有效表达式，也可以用 `$p` 显式继承：
 
 ```text
 父项: [xxx.exe + 0x123] + 0x111
@@ -48,9 +48,7 @@ common/
   types.py
   expression.py
 core/
-  memory_tool.py        底层驱动封装
-  memory_engine.py      内存交互门面（表达式/读写/批量请求）
-  fetcher.py            批量读取请求合并
+  memory_engine.py      内存层（驱动读写/表达式解析/指针缓存/批量请求合并）
   search_engine.py      搜索算法
   cracker_client.py     驱动 IOCTL 通信
   cracker_installer.py  驱动安装/卸载

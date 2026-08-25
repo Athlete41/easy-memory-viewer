@@ -222,6 +222,7 @@ class MemoryViewer(QWidget):
                 address = self._engine.resolve_expression(
                     addrExpression,
                     self.is_64bit_checkbox.isChecked(),
+                    use_cache=False,
                 )
             except Exception as e:
                 error_msg = f"地址: {addrExpression}, 错误: {str(e)}"
