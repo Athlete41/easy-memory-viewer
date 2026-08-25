@@ -146,6 +146,7 @@ class EasyMemoryViewerWindow(QMainWindow):
             }
         """)
         self.search_panel = SearchPanel()
+        self.search_panel.refresh_before_next_scan = True
         self.watch_panel = WatchPanel()
 
         self.right_tabs.addTab(self.search_panel, "🔍 搜索")
@@ -181,6 +182,7 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.search_panel.log_signal.connect(self.log_panel.log)
         self.search_panel.modify_requested.connect(self._on_modify_requested)
         self.search_panel.context_menu_requested.connect(self._on_search_context_menu)
+        self.search_panel.next_scan_requested.connect(self._on_search_next_scan_requested)
 
         self.watch_panel.log_signal.connect(self.log_panel.log)
         self.watch_panel.modify_requested.connect(self._on_modify_requested)
@@ -300,6 +302,14 @@ class EasyMemoryViewerWindow(QMainWindow):
             self.log_panel.error(f"修改失败: {address} <- {value_expr}: {e}")
 
     # ================= 搜索回调 =================
+
+    def _on_search_next_scan_requested(self):
+        """再次扫描前先同步刷新一次内存数据，再用新数据执行扫描。"""
+        if not self.engine.isAttached():
+            self.log_panel.warning("未附加进程，无法刷新后再次扫描")
+            return
+        self._manual_refresh()
+        self.search_panel.continue_next_scan()
 
     def _on_search_item_activated(self, address: int, data_type: DataType, value: object):
         """双击搜索列表 -> 跳转到该地址"""

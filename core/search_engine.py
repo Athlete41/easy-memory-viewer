@@ -264,6 +264,10 @@ class SearchEngine:
     @staticmethod
     def _matches_numeric(current: Union[int, float], target: Union[int, float], op: str) -> bool:
         if op == "=":
+            if isinstance(current, float) or isinstance(target, float):
+                diff = abs(current - target)
+                scale = max(1.0, abs(current), abs(target))
+                return diff <= 1e-6 * scale
             return current == target
         if op == ">":
             return current > target

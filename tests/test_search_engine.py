@@ -15,6 +15,10 @@ class SearchEngineTests(unittest.TestCase):
         engine = SearchEngine()
         self.assertNotIn("未知", engine.get_first_ops(DataType.STRING))
 
+    def test_float_equal_uses_tolerance(self):
+        self.assertTrue(SearchEngine._matches_numeric(100.0000005, 100.0, "="))
+        self.assertFalse(SearchEngine._matches_numeric(100.001, 100.0, "="))
+
 
 if __name__ == "__main__":
     unittest.main()

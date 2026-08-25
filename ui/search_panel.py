@@ -188,6 +188,7 @@ class SearchPanel(QWidget):
     modify_requested = Signal("long long", str, DataType)
     item_activated = Signal("long long", DataType, object)
     log_signal = Signal(LogLevel, str)
+    next_scan_requested = Signal()
     context_menu_requested = Signal(QMenu, object, object)
 
     def __init__(self, parent=None):
@@ -195,6 +196,7 @@ class SearchPanel(QWidget):
         self._engine = SearchEngine()
         self._current_data: Optional[bytes] = None
         self._base_address: int = 0
+        self.refresh_before_next_scan = False
 
         self._model = _CandidateTableModel(self)
 
@@ -304,6 +306,14 @@ class SearchPanel(QWidget):
             self.log_signal.emit(LogLevel.ERROR, f"首次扫描失败: {e}")
 
     def _do_next_scan(self):
+        """再次扫描：默认直接用当前数据；开启刷新模式时先请求外部刷新。"""
+        if self.refresh_before_next_scan:
+            self.next_scan_requested.emit()
+            return
+        self.continue_next_scan()
+
+    def continue_next_scan(self):
+        """数据刷新完成后执行再次扫描。"""
         if self._current_data is None:
             self.log_signal.emit(LogLevel.WARNING, "没有数据可供搜索")
             return
@@ -312,7 +322,7 @@ class SearchPanel(QWidget):
         op = self.op_combo.currentText()
         value_str = self._get_current_value()
 
-        if not value_str and op != "未知":
+        if not value_str and op not in ("增加", "减少", "变化", "不变"):
             self.log_signal.emit(LogLevel.WARNING, "请输入搜索值")
             return
 
@@ -329,7 +339,6 @@ class SearchPanel(QWidget):
             self.log_signal.emit(LogLevel.INFO, f"再次扫描完成，剩余 {len(results)} 个结果")
         except Exception as e:
             self.log_signal.emit(LogLevel.ERROR, f"再次扫描失败: {e}")
-
     def _do_clear(self):
         self.clear()
         self.log_signal.emit(LogLevel.INFO, "搜索已清空")
