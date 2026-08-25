@@ -315,7 +315,7 @@ class EasyMemoryViewerWindow(QMainWindow):
             "timer_interval": self.timer_interval,
             "timer_enabled": self.timer_check.isChecked(),
             "recent_files": self._recent_files,
-            "jump_history": self._jump_history,  # ← 新增
+            # "jump_history": self._jump_history,
         }
 
     def deserialize(self, data: dict):
@@ -334,9 +334,9 @@ class EasyMemoryViewerWindow(QMainWindow):
         if "recent_files" in data:
             self._recent_files = data["recent_files"][:self._max_recent_files]
             self._update_recent_menu()
-        if "jump_history" in data:
-            self._jump_history = data["jump_history"][-self._max_jump_history:]
-            self._update_jump_history_menu()
+        # if "jump_history" in data:
+        #     self._jump_history = data["jump_history"][-self._max_jump_history:]
+        #     self._update_jump_history_menu()
         self._update_timer()
 
     def _update_recent_menu(self):
