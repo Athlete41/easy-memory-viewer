@@ -8,7 +8,7 @@ from typing import Any, Dict, List
 from PySide6.QtCore import QObject, Signal
 
 import core.cracker_client as ct
-from common.types import DataType
+from common.types import DataType, pack_value
 
 
 @dataclass
@@ -264,25 +264,10 @@ class MemoryEngine(QObject):
             address = address_expr
 
         if data_type == DataType.STRING:
-            data = value_expr.encode("utf-8")
+            value = value_expr
         else:
-            val = eval(value_expr, {}, {})
-            if data_type == DataType.BYTE:
-                data = struct.pack("b", val)
-            elif data_type == DataType.INT16:
-                data = struct.pack("<h", val)
-            elif data_type in (DataType.INT32, DataType.HEX32):
-                data = struct.pack("<i", val)
-            elif data_type == DataType.INT64:
-                data = struct.pack("<q", val)
-            elif data_type == DataType.HEX64:
-                data = struct.pack("<Q", val)
-            elif data_type == DataType.FLOAT:
-                data = struct.pack("<f", val)
-            elif data_type == DataType.DOUBLE:
-                data = struct.pack("<d", val)
-            else:
-                raise ValueError(f"不支持的数据类型: {data_type}")
+            value = eval(value_expr, {}, {})
+        data = pack_value(value, data_type)
 
         if not self.write(address, data):
             raise RuntimeError("写入失败")

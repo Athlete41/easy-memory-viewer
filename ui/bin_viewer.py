@@ -25,6 +25,9 @@ WIDTH_MAP: Dict[DataType, int] = {
     DataType.STRING: (200, 200),
     DataType.HEX32: (100, 100),
     DataType.HEX64: (150, 150),
+    DataType.UINT16: (70, 70),
+    DataType.UINT32: (90, 90),
+    DataType.UINT64: (110, 110),
 }
 
 # ================= BinViewer 主控件 =================

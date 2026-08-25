@@ -36,6 +36,9 @@ _DEFAULT_ALIGN = {
     DataType.INT16.value: "2",
     DataType.INT32.value: "4",
     DataType.INT64.value: "8",
+    DataType.UINT16.value: "2",
+    DataType.UINT32.value: "4",
+    DataType.UINT64.value: "8",
     DataType.FLOAT.value: "4",
     DataType.DOUBLE.value: "8",
     DataType.STRING.value: "1",
@@ -279,7 +282,7 @@ class SearchPanel(QWidget):
         value_str = self._get_current_value()
         align = self._get_current_align()
 
-        if not value_str:
+        if not value_str and op != "未知":
             self.log_signal.emit(LogLevel.WARNING, "请输入搜索值")
             return
 
@@ -309,7 +312,7 @@ class SearchPanel(QWidget):
         op = self.op_combo.currentText()
         value_str = self._get_current_value()
 
-        if not value_str:
+        if not value_str and op != "未知":
             self.log_signal.emit(LogLevel.WARNING, "请输入搜索值")
             return
 
@@ -352,7 +355,7 @@ class SearchPanel(QWidget):
         self.between_label.setVisible(is_between)
         self.max_edit.setVisible(is_between)
         if not is_between:
-            self.value_edit.setEnabled(op not in ("增加", "减少", "变化", "不变"))
+            self.value_edit.setEnabled(op not in ("增加", "减少", "变化", "不变", "未知"))
         else:
             self.value_edit.setEnabled(True)
 

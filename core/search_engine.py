@@ -22,7 +22,7 @@ class SearchState(Enum):
 
 
 # 首次搜索操作符
-FIRST_OPS_NUMERIC = ["=", ">", "<", "between"]
+FIRST_OPS_NUMERIC = ["=", ">", "<", "between", "未知"]
 FIRST_OPS_STRING = [
     "包含(忽略大小写)",
     "包含(精确大小写)",
@@ -294,6 +294,10 @@ class SearchEngine:
                 raw = unpack(data, off)[0]
                 if min_val <= raw <= max_val:
                     results.append(SearchResult(off, raw, data_type))
+        elif op == "未知":
+            for off in range(0, max(limit, 0), step):
+                raw = unpack(data, off)[0]
+                results.append(SearchResult(off, raw, data_type))
         else:
             target = self._parse_value(value, data_type)
             for off in range(0, max(limit, 0), step):

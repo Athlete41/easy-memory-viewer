@@ -15,6 +15,9 @@ class DataType(Enum):
     INT16 = "Int16"
     INT32 = "Int32"
     INT64 = "Int64"
+    UINT16 = "UInt16"
+    UINT32 = "UInt32"
+    UINT64 = "UInt64"
     FLOAT = "Float"
     DOUBLE = "Double"
     STRING = "String"
@@ -47,6 +50,9 @@ _STRUCTS = {
     DataType.INT16: struct.Struct("<h"),
     DataType.INT32: struct.Struct("<i"),
     DataType.INT64: struct.Struct("<q"),
+    DataType.UINT16: struct.Struct("<H"),
+    DataType.UINT32: struct.Struct("<I"),
+    DataType.UINT64: struct.Struct("<Q"),
     DataType.FLOAT: struct.Struct("<f"),
     DataType.DOUBLE: struct.Struct("<d"),
     DataType.HEX32: struct.Struct("<I"),
@@ -57,6 +63,9 @@ _TYPE_SIZE = {
     DataType.INT16: 2,
     DataType.INT32: 4,
     DataType.INT64: 8,
+    DataType.UINT16: 2,
+    DataType.UINT32: 4,
+    DataType.UINT64: 8,
     DataType.FLOAT: 4,
     DataType.DOUBLE: 8,
     DataType.HEX32: 4,
@@ -98,6 +107,15 @@ class FormatConfig:
                 return f"{val}"
             elif fmt.data_type == DataType.INT64:
                 val = struct.unpack('<q' if fmt.endian == Endian.LITTLE else '>q', chunk[:8])[0]
+                return f"{val}"
+            elif fmt.data_type == DataType.UINT16:
+                val = struct.unpack('<H' if fmt.endian == Endian.LITTLE else '>H', chunk[:2])[0]
+                return f"{val}"
+            elif fmt.data_type == DataType.UINT32:
+                val = struct.unpack('<I' if fmt.endian == Endian.LITTLE else '>I', chunk[:4])[0]
+                return f"{val}"
+            elif fmt.data_type == DataType.UINT64:
+                val = struct.unpack('<Q' if fmt.endian == Endian.LITTLE else '>Q', chunk[:8])[0]
                 return f"{val}"
             elif fmt.data_type == DataType.FLOAT:
                 val = struct.unpack('<f' if fmt.endian == Endian.LITTLE else '>f', chunk[:4])[0]
@@ -165,3 +183,26 @@ def parse_value_from_bytes(data: bytes, data_type: DataType) -> int | float | st
     return struct_obj.unpack_from(data, 0)[0]
 
 
+_PACK_FORMATS = {
+    DataType.BYTE: "b",
+    DataType.INT16: "<h",
+    DataType.INT32: "<i",
+    DataType.INT64: "<q",
+    DataType.UINT16: "<H",
+    DataType.UINT32: "<I",
+    DataType.UINT64: "<Q",
+    DataType.HEX32: "<i",
+    DataType.HEX64: "<Q",
+    DataType.FLOAT: "<f",
+    DataType.DOUBLE: "<d",
+}
+
+
+def pack_value(value, data_type: DataType) -> bytes:
+    """按数据类型把值打包为内存字节。"""
+    if data_type == DataType.STRING:
+        return str(value).encode("utf-8")
+    fmt = _PACK_FORMATS.get(data_type)
+    if fmt is None:
+        raise ValueError(f"不支持的数据类型: {data_type}")
+    return struct.pack(fmt, value)
