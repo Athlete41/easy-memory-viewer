@@ -466,6 +466,18 @@ class EasyMemoryViewerWindow(QMainWindow):
         # 用 lambda 捕获，不立即执行
         watch_action.triggered.connect(lambda: self._add_bin_selection_to_watch())
 
+        if data_type == DataType.HEX64:
+            try:
+                target = int(str(value), 16)
+            except ValueError:
+                target = None
+            if target is not None:
+                menu.addSeparator()
+                jump_action = menu.addAction(f"跳转到值 0x{target:X}")
+                jump_action.triggered.connect(
+                    lambda: self.viewer.jump_to(target, size=None)
+                )
+
     def _add_bin_selection_to_watch(self):
         for address, _value, data_type in self.viewer.bin_viewer.get_selected_entries():
             self.watch_panel.add_entry(f"0x{address:X}", f"0x{address:X}", data_type)

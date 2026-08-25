@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
     QGridLayout,
     QGroupBox,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
     QLineEdit,
     QMenu,
@@ -437,7 +438,11 @@ class SearchPanel(QWidget):
         self.candidate_view.setSelectionBehavior(QAbstractItemView.SelectItems)
         self.candidate_view.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.candidate_view.verticalHeader().setVisible(False)
-        self.candidate_view.horizontalHeader().setStretchLastSection(True)
+        header = self.candidate_view.horizontalHeader()
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        header.setDefaultSectionSize(120)
+        header.resizeSection(0, 150)
         self.candidate_view.setSelectionMode(QAbstractItemView.ExtendedSelection)
         self._install_table_actions(self.candidate_view)
 

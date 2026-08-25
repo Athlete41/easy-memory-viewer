@@ -107,7 +107,7 @@ class _WatchTreeModel(QAbstractItemModel):
             elif col == 2:
                 return entry.data_type.value
             else:
-                return self._format_value(entry.value)
+                return self._format_value(entry.value, entry.data_type)
 
         elif role == Qt.TextAlignmentRole:
             return Qt.AlignmentFlag.AlignLeft | Qt.AlignmentFlag.AlignVCenter
@@ -115,14 +115,16 @@ class _WatchTreeModel(QAbstractItemModel):
         return None
 
     @staticmethod
-    def _format_value(value: Any) -> str:
+    def _format_value(value: Any, data_type: DataType) -> str:
         if value is None:
             return ""
         if isinstance(value, float):
             return f"{value:.6f}"
         if isinstance(value, str):
             return value
-        return f"0x{value:X}"
+        if data_type in (DataType.BYTE, DataType.HEX32, DataType.HEX64):
+            return f"0x{value:X}"
+        return str(value)
 
     def headerData(self, section: int, orientation: int, role: int = Qt.DisplayRole):
         if role != Qt.DisplayRole or orientation != Qt.Horizontal:
@@ -374,10 +376,13 @@ class WatchPanel(QWidget):
         self.table.setSelectionMode(QAbstractItemView.ExtendedSelection)
 
         header = self.table.header()
-        header.setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(1, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(2, QHeaderView.ResizeMode.ResizeToContents)
-        header.setSectionResizeMode(3, QHeaderView.ResizeMode.Stretch)
+        header.setStretchLastSection(False)
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        header.setDefaultSectionSize(140)
+        header.resizeSection(0, 180)
+        header.resizeSection(1, 160)
+        header.resizeSection(2, 100)
+        header.resizeSection(3, 160)
 
         self._install_table_actions()
 
