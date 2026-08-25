@@ -343,10 +343,16 @@ class WatchPanel(QWidget):
         toolbar = QHBoxLayout()
         self.add_btn = QPushButton("添加观察项")
         self.add_btn.clicked.connect(self._on_add_clicked)
+        self.expand_all_btn = QPushButton("全部展开")
+        self.expand_all_btn.clicked.connect(self._on_expand_all_clicked)
+        self.collapse_all_btn = QPushButton("全部收起")
+        self.collapse_all_btn.clicked.connect(self._on_collapse_all_clicked)
         self.clear_btn = QPushButton("清空所有")
         self.clear_btn.clicked.connect(self._on_clear_clicked)
 
         toolbar.addWidget(self.add_btn)
+        toolbar.addWidget(self.expand_all_btn)
+        toolbar.addWidget(self.collapse_all_btn)
         toolbar.addStretch()
         toolbar.addWidget(self.clear_btn)
         layout.addLayout(toolbar)
@@ -642,6 +648,12 @@ class WatchPanel(QWidget):
                 cells.append("" if value is None else str(value))
             lines.append("\t".join(cells))
         QApplication.clipboard().setText("\n".join(lines))
+
+    def _on_expand_all_clicked(self):
+        self.table.expandAll()
+
+    def _on_collapse_all_clicked(self):
+        self.table.collapseAll()
 
     def _on_add_clicked(self):
         self._show_add_dialog()

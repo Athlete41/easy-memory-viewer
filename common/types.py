@@ -140,7 +140,7 @@ def parse_value_from_bytes(data: bytes, data_type: DataType) -> int | float | st
     从原始字节解析值（供外部调度器使用）
     
     Args:
-        data: 原始字节（通常来自 Fetcher 返回的 bytes）
+        data: 原始字节
         data_type: 数据类型
     
     Returns:
