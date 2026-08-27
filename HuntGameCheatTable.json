@@ -1,0 +1,77 @@
+{
+    "watch_panel": {
+        "entries": [
+            {
+                "name": "gEnv",
+                "expression": "[GameHunt.dll + 0x2827328]",
+                "data_type": "Byte",
+                "children": [
+                    {
+                        "name": "psystem",
+                        "expression": "[$p + 0x90]",
+                        "data_type": "8 Byte Hex",
+                        "children": [
+                            {
+                                "name": "camera",
+                                "expression": "+ 0x8F8",
+                                "data_type": "8 Byte Hex",
+                                "children": [
+                                    {
+                                        "name": "ViewMatrix",
+                                        "expression": "+ 0x230",
+                                        "data_type": "Float",
+                                        "children": []
+                                    },
+                                    {
+                                        "name": "Pos",
+                                        "expression": "+ 0x2F0",
+                                        "data_type": "Byte",
+                                        "children": [
+                                            {
+                                                "name": "X",
+                                                "expression": "+0",
+                                                "data_type": "Float",
+                                                "children": []
+                                            },
+                                            {
+                                                "name": "Y",
+                                                "expression": "+4",
+                                                "data_type": "Float",
+                                                "children": []
+                                            },
+                                            {
+                                                "name": "Z",
+                                                "expression": "+8",
+                                                "data_type": "Float",
+                                                "children": []
+                                            }
+                                        ]
+                                    }
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "name": "EntSystem",
+                        "expression": "[$p + 0xC0]",
+                        "data_type": "Byte",
+                        "children": [
+                            {
+                                "name": "List",
+                                "expression": "+ 0x40098",
+                                "data_type": "Byte",
+                                "children": []
+                            }
+                        ]
+                    },
+                    {
+                        "name": "IGameFramework",
+                        "expression": "[$p + 0xD8]",
+                        "data_type": "Byte",
+                        "children": []
+                    }
+                ]
+            }
+        ]
+    }
+}

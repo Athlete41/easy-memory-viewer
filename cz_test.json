@@ -1,0 +1,12 @@
+{
+    "watch_panel": {
+        "entries": [
+            {
+                "name": "玩家血量",
+                "expression": "[hw.dll+0xF779D8]+0x1E0",
+                "data_type": "Float",
+                "children": []
+            }
+        ]
+    }
+}
