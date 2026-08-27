@@ -170,8 +170,8 @@ class RecursiveSearchPanel(QWidget):
     def _parse_int(text: str, name: str) -> int:
         value = text.strip()
         try:
-            return int(value, 16) if value.lower().startswith("0x") else int(value)
-        except ValueError:
+            return int(eval(value, {}, {}))
+        except Exception:
             raise ValueError(f"{name} 格式错误: {value}")
 
     def _on_start(self):
