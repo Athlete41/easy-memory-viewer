@@ -119,9 +119,9 @@ class RecursiveSearchPanel(QWidget):
 
         self.target_edit = QLineEdit("0x0")
         self.entry_edit = QLineEdit("0x0")
-        self.size_edit = QLineEdit("0x100")
-        self.range_min_edit = QLineEdit("0x0")
-        self.range_max_edit = QLineEdit("0x7FFFFFFFFFFFFFFF")
+        self.size_edit = QLineEdit("0x1000")
+        self.range_min_edit = QLineEdit("0x2000000")
+        self.range_max_edit = QLineEdit("0x7FFFFFFFFFFF")
         self.depth_edit = QLineEdit("3")
         self.full_search_check = QCheckBox("全量搜索")
         self.start_btn = QPushButton("开始")
