@@ -14,6 +14,7 @@ from ui.memory_viewer import MemoryViewer
 from ui.log_panel import LogPanel
 from ui.search_panel import SearchPanel
 from ui.watch_panel import WatchPanel, WatchEntry
+from ui.recursive_search_panel import RecursiveSearchPanel
 from core.memory_engine import MemoryEngine
 from core.memory_engine import ReadRequest
 from common.types import DataType
@@ -148,9 +149,11 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.search_panel = SearchPanel()
         self.search_panel.refresh_before_next_scan = True
         self.watch_panel = WatchPanel()
+        self.recursive_panel = RecursiveSearchPanel(self.engine)
 
         self.right_tabs.addTab(self.search_panel, "🔍 搜索")
         self.right_tabs.addTab(self.watch_panel, "📋 观察")
+        self.right_tabs.addTab(self.recursive_panel, "🔎 递归搜索")
 
         splitter.addWidget(self.viewer)
         splitter.addWidget(self.right_tabs)
@@ -187,6 +190,7 @@ class EasyMemoryViewerWindow(QMainWindow):
         self.watch_panel.log_signal.connect(self.log_panel.log)
         self.watch_panel.modify_requested.connect(self._on_modify_requested)
         self.watch_panel.context_menu_requested.connect(self._on_watch_context_menu)
+        self.recursive_panel.log_signal.connect(self.log_panel.log)
 
 
     # ================= 调度逻辑 =================
